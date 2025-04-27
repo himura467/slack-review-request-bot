@@ -76,3 +76,34 @@ resource "terraform_data" "docker_push" {
     google_project_service.artifact_registry_api,
   ]
 }
+
+resource "time_sleep" "wait_for_push" {
+  depends_on      = [ terraform_data.docker_push ]
+  create_duration = "30s"
+}
+
+resource "google_project_service" "cloud_run_admin_api" {
+  project = var.google_project_id
+  service = "run.googleapis.com"
+}
+
+resource "google_cloud_run_v2_service" "slack_review_request_bot" {
+  name                = local.app_name
+  location            = var.google_region
+  deletion_protection = false
+
+  template {
+    containers {
+      image = "${var.google_region}-docker.pkg.dev/${var.google_project_id}/${local.app_name}/${local.app_name}:latest"
+    }
+    scaling {
+      min_instance_count = 0
+      max_instance_count = 1
+    }
+  }
+
+  depends_on = [
+    google_project_service.cloud_run_admin_api,
+    time_sleep.wait_for_push,
+  ]
+}
