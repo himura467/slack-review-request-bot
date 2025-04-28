@@ -107,3 +107,19 @@ resource "google_cloud_run_v2_service" "slack_review_request_bot" {
     time_sleep.wait_for_push,
   ]
 }
+
+data "google_iam_policy" "cloud_run_invoker" {
+  binding {
+    role    = "roles/run.invoker"
+    members = [
+      "allUsers",
+    ]
+  }
+}
+
+resource "google_cloud_run_v2_service_iam_policy" "cloud_run_invoker" {
+  project     = google_cloud_run_v2_service.slack_review_request_bot.project
+  location    = google_cloud_run_v2_service.slack_review_request_bot.location
+  name        = google_cloud_run_v2_service.slack_review_request_bot.name
+  policy_data = data.google_iam_policy.cloud_run_invoker.policy_data
+}
