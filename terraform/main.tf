@@ -11,7 +11,7 @@ terraform {
       version = "6.31.1"
     }
   }
-  
+
   backend "s3" {
     profile      = "himura"
     bucket       = "slack-review-request-bot-terraform-state"
@@ -56,7 +56,7 @@ resource "google_project_service" "artifact_registry_api" {
 }
 
 resource "terraform_data" "docker_push" {
-  triggers_replace = [ timestamp() ]
+  triggers_replace = [timestamp()]
 
   provisioner "local-exec" {
     command = <<EOF
@@ -78,7 +78,7 @@ resource "terraform_data" "docker_push" {
 }
 
 resource "time_sleep" "wait_for_push" {
-  depends_on      = [ terraform_data.docker_push ]
+  depends_on      = [terraform_data.docker_push]
   create_duration = "30s"
 }
 
@@ -110,7 +110,7 @@ resource "google_cloud_run_v2_service" "slack_review_request_bot" {
 
 data "google_iam_policy" "cloud_run_invoker" {
   binding {
-    role    = "roles/run.invoker"
+    role = "roles/run.invoker"
     members = [
       "allUsers",
     ]
