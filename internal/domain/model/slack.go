@@ -38,6 +38,11 @@ func (e *CallbackEvent) GetType() string {
 	return e.eventType
 }
 
+// GetChannelID returns the channel ID of the event
+func (e *CallbackEvent) GetChannelID() string {
+	return e.channelID
+}
+
 // IsThreadedMessage checks if the message is part of a thread
 func (e *CallbackEvent) IsThreadedMessage() bool {
 	return e.threadTS != ""
