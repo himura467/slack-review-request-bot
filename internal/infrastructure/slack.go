@@ -50,7 +50,7 @@ func (c *Client) VerifyRequest(r *http.Request) ([]byte, error) {
 }
 
 func (c *Client) ParseEvent(body []byte) (model.Event, error) {
-	eventsAPIEvent, err := slackevents.ParseEvent(json.RawMessage(body), slackevents.OptionNoVerifyToken())
+	eventsAPIEvent, err := slackevents.ParseEvent(body, slackevents.OptionNoVerifyToken())
 	if err != nil {
 		slog.Error("failed to parse event", "error", err)
 		return nil, err
