@@ -26,27 +26,27 @@ func NewClient(oauthToken, signingSecret string) *Client {
 	}
 }
 
-func (c *Client) VerifyRequest(r *http.Request) error {
+func (c *Client) VerifyRequest(r *http.Request) ([]byte, error) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		slog.Error("failed to read request body", "error", err)
-		return err
+		return nil, err
 	}
 	sv, err := slack.NewSecretsVerifier(r.Header, c.signingSecret)
 	if err != nil {
 		slog.Error("failed to create secrets verifier", "error", err)
-		return err
+		return nil, err
 	}
 	if _, err = sv.Write(body); err != nil {
 		slog.Error("failed to write body to verifier", "error", err)
-		return err
+		return nil, err
 	}
 	if err := sv.Ensure(); err != nil {
 		slog.Error("failed to verify request", "error", err)
-		return err
+		return nil, err
 	}
 	slog.Info("request verified successfully")
-	return nil
+	return body, nil
 }
 
 func (c *Client) ParseEvent(body []byte) (model.Event, error) {
