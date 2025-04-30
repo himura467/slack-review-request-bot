@@ -14,14 +14,14 @@ import (
 
 type Client struct {
 	api           *slack.Client
-	signingSecret string
+	signingSecret model.SigningSecret
 }
 
 var _ repository.SlackRepository = (*Client)(nil)
 
-func NewClient(oauthToken, signingSecret string) *Client {
+func NewClient(oauthToken model.OAuthToken, signingSecret model.SigningSecret) *Client {
 	return &Client{
-		api:           slack.New(oauthToken),
+		api:           slack.New(string(oauthToken)),
 		signingSecret: signingSecret,
 	}
 }
@@ -32,7 +32,7 @@ func (c *Client) VerifyRequest(r *http.Request) ([]byte, error) {
 		slog.Error("failed to read request body", "error", err)
 		return nil, err
 	}
-	sv, err := slack.NewSecretsVerifier(r.Header, c.signingSecret)
+	sv, err := slack.NewSecretsVerifier(r.Header, string(c.signingSecret))
 	if err != nil {
 		slog.Error("failed to create secrets verifier", "error", err)
 		return nil, err
