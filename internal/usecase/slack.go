@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/himura467/slack-review-request-bot/internal/domain/model"
@@ -8,7 +9,7 @@ import (
 )
 
 type SlackUsecase interface {
-	HandleEvent(w http.ResponseWriter, r *http.Request) error
+	HandleEvent(w http.ResponseWriter, r *http.Request)
 }
 
 type SlackUsecaseImpl struct {
@@ -24,31 +25,43 @@ func NewSlackUsecase(slackRepo repository.SlackRepository) *SlackUsecaseImpl {
 }
 
 // HandleEvent processes incoming Slack events
-func (u *SlackUsecaseImpl) HandleEvent(w http.ResponseWriter, r *http.Request) error {
+func (u *SlackUsecaseImpl) HandleEvent(w http.ResponseWriter, r *http.Request) {
 	// Verify the request and get body
 	body, err := u.slackRepo.VerifyRequest(r)
 	if err != nil {
-		return err
+		slog.Error("failed to verify request", "error", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 	// Parse the event
 	event, err := u.slackRepo.ParseEvent(body)
 	if err != nil {
-		return err
+		slog.Error("failed to parse event", "error", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 	switch e := event.(type) {
 	case *model.CallbackEvent:
 		// Only respond to non-threaded messages
 		if e.IsThreadedMessage() {
-			return nil
+			w.WriteHeader(http.StatusOK)
+			return
 		}
 		// Create a new message with "Hello World"
 		message := model.NewMessage(e.GetChannelID(), "Hello World")
 		// Post the message to Slack
-		return u.slackRepo.PostMessage(message)
+		if err := u.slackRepo.PostMessage(message); err != nil {
+			slog.Error("failed to post message", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
 	case *model.URLVerificationEvent:
 		// URL verification events don't require a response here
-		return nil
+		w.WriteHeader(http.StatusOK)
+		return
 	default:
-		return nil
+		w.WriteHeader(http.StatusOK)
+		return
 	}
 }
