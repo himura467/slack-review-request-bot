@@ -1,5 +1,11 @@
 package model
 
+// OAuthToken represents a Slack OAuth token
+type OAuthToken string
+
+// SigningSecret represents a Slack signing secret
+type SigningSecret string
+
 // Message represents a Slack message
 type Message struct {
 	ChannelID string
