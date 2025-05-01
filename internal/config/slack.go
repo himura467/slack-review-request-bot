@@ -22,6 +22,6 @@ func NewSlackConfig() *SlackConfig {
 	return &SlackConfig{
 		OAuthToken:    model.OAuthToken(os.Getenv("SLACK_OAUTH_TOKEN")),
 		SigningSecret: model.SigningSecret(os.Getenv("SLACK_SIGNING_SECRET")),
-		ReviewerIDs:   reviewerIDs,
+		ReviewerIDs:   model.ReviewerIDs(reviewerIDs),
 	}
 }
