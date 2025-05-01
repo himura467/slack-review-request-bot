@@ -19,11 +19,16 @@ func provideSigningSecret(cfg *config.SlackConfig) model.SigningSecret {
 	return cfg.SigningSecret
 }
 
+func provideReviewerIDs(cfg *config.SlackConfig) model.ReviewerIDs {
+	return cfg.ReviewerIDs
+}
+
 func initializeApp() *app {
 	wire.Build(
 		config.NewSlackConfig,
 		provideOAuthToken,
 		provideSigningSecret,
+		provideReviewerIDs,
 		infrastructure.Set,
 		usecase.Set,
 		newApp,
