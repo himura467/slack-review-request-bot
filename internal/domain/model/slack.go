@@ -1,10 +1,23 @@
 package model
 
+import "math/rand"
+
 // OAuthToken represents a Slack OAuth token
 type OAuthToken string
 
 // SigningSecret represents a Slack signing secret
 type SigningSecret string
+
+// ReviewerIDs represents a list of Slack user IDs that can be assigned as reviewers
+type ReviewerIDs []string
+
+// GetRandomReviewer returns a random reviewer ID from the list
+func (r ReviewerIDs) GetRandomReviewer() (string, bool) {
+	if len(r) == 0 {
+		return "", false
+	}
+	return r[rand.Intn(len(r))], true
+}
 
 // Message represents a Slack message
 type Message struct {

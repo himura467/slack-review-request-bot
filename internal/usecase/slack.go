@@ -13,14 +13,16 @@ type SlackUsecase interface {
 }
 
 type SlackUsecaseImpl struct {
-	slackRepo repository.SlackRepository
+	slackRepo   repository.SlackRepository
+	reviewerIDs model.ReviewerIDs
 }
 
 var _ SlackUsecase = (*SlackUsecaseImpl)(nil)
 
-func NewSlackUsecase(slackRepo repository.SlackRepository) *SlackUsecaseImpl {
+func NewSlackUsecase(slackRepo repository.SlackRepository, reviewerIDs model.ReviewerIDs) *SlackUsecaseImpl {
 	return &SlackUsecaseImpl{
-		slackRepo: slackRepo,
+		slackRepo:   slackRepo,
+		reviewerIDs: reviewerIDs,
 	}
 }
 
@@ -47,8 +49,15 @@ func (u *SlackUsecaseImpl) HandleEvent(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
-		// Create a new message with "Hello World"
-		message := model.NewMessage(e.GetChannelID(), "Hello World")
+		// Get random reviewer from configured list
+		reviewer, ok := u.reviewerIDs.GetRandomReviewer()
+		if !ok {
+			slog.Error("no reviewer IDs configured")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		messageText := "<@" + reviewer + "> このメッセージをレビューし、完了したら :white_check_mark: のリアクションをつけてください"
+		message := model.NewMessage(e.GetChannelID(), messageText)
 		// Post the message to Slack
 		if err := u.slackRepo.PostMessage(message); err != nil {
 			slog.Error("failed to post message", "error", err)
