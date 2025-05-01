@@ -57,7 +57,12 @@ func (u *SlackUsecaseImpl) HandleEvent(w http.ResponseWriter, r *http.Request) {
 		}
 		w.WriteHeader(http.StatusOK)
 	case *model.URLVerificationEvent:
-		// URL verification events don't require a response here
+		if _, err := w.Write([]byte(e.GetChallenge())); err != nil {
+			slog.Error("failed to write response", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusOK)
 		return
 	default:
