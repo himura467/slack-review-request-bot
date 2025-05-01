@@ -20,7 +20,8 @@ func initializeApp() *app {
 	oAuthToken := provideOAuthToken(slackConfig)
 	signingSecret := provideSigningSecret(slackConfig)
 	client := infrastructure.NewClient(oAuthToken, signingSecret)
-	slackUsecaseImpl := usecase.NewSlackUsecase(client)
+	reviewerIDs := provideReviewerIDs(slackConfig)
+	slackUsecaseImpl := usecase.NewSlackUsecase(client, reviewerIDs)
 	mainApp := newApp(slackUsecaseImpl)
 	return mainApp
 }
@@ -33,4 +34,8 @@ func provideOAuthToken(cfg *config.SlackConfig) model.OAuthToken {
 
 func provideSigningSecret(cfg *config.SlackConfig) model.SigningSecret {
 	return cfg.SigningSecret
+}
+
+func provideReviewerIDs(cfg *config.SlackConfig) model.ReviewerIDs {
+	return cfg.ReviewerIDs
 }
