@@ -16,7 +16,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 go build \
               -X github.com/himura467/slack-review-request-bot/internal/config.ReviewerIDs=$SLACK_REVIEWER_IDS" \
     -o /go/bin/slack-events-api ./cmd/slack-events-api
 
-FROM scratch AS slack-events-api
+FROM gcr.io/distroless/static-debian12 AS slack-events-api
 
 COPY --from=builder /go/bin/slack-events-api /app
 
