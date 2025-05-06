@@ -1,10 +1,15 @@
 package config
 
 import (
-	"os"
 	"strings"
 
 	"github.com/himura467/slack-review-request-bot/internal/domain/model"
+)
+
+var (
+	OAuthToken    = ""
+	SigningSecret = ""
+	ReviewerIDs   = ""
 )
 
 type SlackConfig struct {
@@ -14,14 +19,13 @@ type SlackConfig struct {
 }
 
 func NewSlackConfig() *SlackConfig {
-	var reviewerIDs []string
-	if ids := os.Getenv("SLACK_REVIEWER_IDS"); ids != "" {
-		reviewerIDs = strings.Split(ids, ",")
-	}
+	token := OAuthToken
+	secret := SigningSecret
+	reviewerIDs := strings.Split(ReviewerIDs, ",")
 
 	return &SlackConfig{
-		OAuthToken:    model.OAuthToken(os.Getenv("SLACK_OAUTH_TOKEN")),
-		SigningSecret: model.SigningSecret(os.Getenv("SLACK_SIGNING_SECRET")),
+		OAuthToken:    model.OAuthToken(token),
+		SigningSecret: model.SigningSecret(secret),
 		ReviewerIDs:   model.ReviewerIDs(reviewerIDs),
 	}
 }
