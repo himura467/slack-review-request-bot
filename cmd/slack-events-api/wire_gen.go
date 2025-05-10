@@ -10,6 +10,8 @@ import (
 	"github.com/himura467/slack-review-request-bot/internal/config"
 	"github.com/himura467/slack-review-request-bot/internal/domain/model"
 	"github.com/himura467/slack-review-request-bot/internal/infrastructure"
+	"github.com/himura467/slack-review-request-bot/internal/interface/rest"
+	"github.com/himura467/slack-review-request-bot/internal/interface/rest/controller"
 	"github.com/himura467/slack-review-request-bot/internal/usecase"
 )
 
@@ -22,7 +24,9 @@ func initializeApp() *app {
 	client := infrastructure.NewClient(oAuthToken, signingSecret)
 	reviewerIDs := provideReviewerIDs(slackConfig)
 	slackUsecaseImpl := usecase.NewSlackUsecase(client, reviewerIDs)
-	mainApp := newApp(slackUsecaseImpl)
+	controllerController := controller.NewController(slackUsecaseImpl)
+	server := rest.NewServer(controllerController)
+	mainApp := newApp(server)
 	return mainApp
 }
 
