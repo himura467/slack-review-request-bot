@@ -2,32 +2,22 @@ package main
 
 import (
 	"log/slog"
-	"net/http"
-	"os"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/himura467/slack-review-request-bot/internal/usecase"
+	"github.com/himura467/slack-review-request-bot/internal/interface/rest"
 )
 
 type app struct {
-	slack usecase.SlackUsecase
+	server *rest.Server
 }
 
-func newApp(slack usecase.SlackUsecase) *app {
+func newApp(server *rest.Server) *app {
 	return &app{
-		slack: slack,
+		server: server,
 	}
 }
 
 func (a *app) Run() {
-	r := chi.NewRouter()
-	r.Post("/slack/events", a.slack.HandleEvent)
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-	slog.Info("starting server", "port", port)
-	if err := http.ListenAndServe(":"+port, r); err != nil {
-		slog.Error("failed to start server", "error", err)
+	if err := a.server.Run(); err != nil {
+		slog.Error("failed to run server", "error", err)
 	}
 }
