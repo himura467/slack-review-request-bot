@@ -25,7 +25,6 @@ type Message struct {
 	Text      string
 }
 
-// NewMessage creates a new Message instance
 func NewMessage(channelID, text string) *Message {
 	return &Message{
 		ChannelID: channelID,

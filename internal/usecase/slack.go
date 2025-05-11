@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"io"
 	"log/slog"
 	"net/http"
 
@@ -28,9 +29,19 @@ func NewSlackUsecase(slackRepo repository.SlackRepository, reviewerIDs model.Rev
 
 // HandleEvent processes incoming Slack events
 func (u *SlackUsecaseImpl) HandleEvent(w http.ResponseWriter, r *http.Request) {
-	// Verify the request and get body
-	body, err := u.slackRepo.VerifyRequest(r)
+	// Read request body
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
+		slog.Error("failed to read request body", "error", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	// Create HTTPRequestContext
+	ctx := model.NewHTTPRequestContext(body, r.Header)
+
+	// Verify the request
+	if err := u.slackRepo.VerifyRequest(ctx); err != nil {
 		slog.Error("failed to verify request", "error", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
