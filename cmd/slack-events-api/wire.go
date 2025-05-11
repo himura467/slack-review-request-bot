@@ -7,8 +7,7 @@ import (
 	"github.com/google/wire"
 	"github.com/himura467/slack-review-request-bot/internal/config"
 	"github.com/himura467/slack-review-request-bot/internal/domain/model"
-	"github.com/himura467/slack-review-request-bot/internal/infrastructure"
-	"github.com/himura467/slack-review-request-bot/internal/usecase"
+	"github.com/himura467/slack-review-request-bot/internal/interface/rest"
 )
 
 func provideOAuthToken(cfg *config.SlackConfig) model.OAuthToken {
@@ -26,11 +25,10 @@ func provideReviewerIDs(cfg *config.SlackConfig) model.ReviewerIDs {
 func initializeApp() *app {
 	wire.Build(
 		config.NewSlackConfig,
+		rest.Set,
 		provideOAuthToken,
 		provideSigningSecret,
 		provideReviewerIDs,
-		infrastructure.Set,
-		usecase.Set,
 		newApp,
 	)
 	return &app{}
