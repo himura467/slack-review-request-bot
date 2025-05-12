@@ -7,7 +7,7 @@ import (
 // SlackRepository defines the interface for Slack operations
 type SlackRepository interface {
 	// VerifyRequest validates the incoming request
-	VerifyRequest(ctx *model.HTTPRequestContext) error
+	VerifyRequest(r *model.HTTPRequest) error
 	// ParseEvent parses the raw event data into a domain event
 	ParseEvent(body []byte) (model.Event, error)
 	// PostMessage posts a message to a Slack channel

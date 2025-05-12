@@ -1,7 +1,6 @@
 package usecase
 
 import (
-	"io"
 	"log/slog"
 	"net/http"
 
@@ -10,7 +9,7 @@ import (
 )
 
 type SlackUsecase interface {
-	HandleEvent(w http.ResponseWriter, r *http.Request)
+	HandleEvent(r *model.HTTPRequest) *model.HTTPResponse
 }
 
 type SlackUsecaseImpl struct {
@@ -28,65 +27,41 @@ func NewSlackUsecase(slackRepo repository.SlackRepository, reviewerIDs model.Rev
 }
 
 // HandleEvent processes incoming Slack events
-func (u *SlackUsecaseImpl) HandleEvent(w http.ResponseWriter, r *http.Request) {
-	// Read request body
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		slog.Error("failed to read request body", "error", err)
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	// Create HTTPRequestContext
-	ctx := model.NewHTTPRequestContext(body, r.Header)
-
+func (u *SlackUsecaseImpl) HandleEvent(r *model.HTTPRequest) *model.HTTPResponse {
 	// Verify the request
-	if err := u.slackRepo.VerifyRequest(ctx); err != nil {
+	if err := u.slackRepo.VerifyRequest(r); err != nil {
 		slog.Error("failed to verify request", "error", err)
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		return model.NewStatusResponse(http.StatusBadRequest)
 	}
 	// Parse the event
-	event, err := u.slackRepo.ParseEvent(body)
+	event, err := u.slackRepo.ParseEvent(r.Body)
 	if err != nil {
 		slog.Error("failed to parse event", "error", err)
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		return model.NewStatusResponse(http.StatusBadRequest)
 	}
 	switch e := event.(type) {
 	case *model.CallbackEvent:
 		// Only respond to non-threaded messages
 		if e.IsThreadedMessage() {
-			w.WriteHeader(http.StatusOK)
-			return
+			return model.NewStatusResponse(http.StatusOK)
 		}
 		// Get random reviewer from configured list
 		reviewer, ok := u.reviewerIDs.GetRandomReviewer()
 		if !ok {
 			slog.Error("no reviewer IDs configured")
-			w.WriteHeader(http.StatusInternalServerError)
-			return
+			return model.NewStatusResponse(http.StatusInternalServerError)
 		}
 		messageText := "<@" + reviewer + "> このメッセージをレビューし、完了したら :white_check_mark: のリアクションをつけてください"
 		message := model.NewMessage(e.GetChannelID(), messageText)
 		// Post the message to Slack
 		if err := u.slackRepo.PostMessage(message); err != nil {
 			slog.Error("failed to post message", "error", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
+			return model.NewStatusResponse(http.StatusInternalServerError)
 		}
-		w.WriteHeader(http.StatusOK)
+		return model.NewStatusResponse(http.StatusOK)
 	case *model.URLVerificationEvent:
-		if _, err := w.Write([]byte(e.GetChallenge())); err != nil {
-			slog.Error("failed to write response", "error", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "text/plain")
-		w.WriteHeader(http.StatusOK)
-		return
+		return model.NewTextResponse(http.StatusOK, []byte(e.GetChallenge()))
 	default:
-		w.WriteHeader(http.StatusOK)
-		return
+		return model.NewStatusResponse(http.StatusOK)
 	}
 }

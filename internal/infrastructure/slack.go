@@ -24,13 +24,13 @@ func NewClient(oauthToken model.OAuthToken, signingSecret model.SigningSecret) *
 	}
 }
 
-func (c *Client) VerifyRequest(ctx *model.HTTPRequestContext) error {
-	sv, err := slack.NewSecretsVerifier(ctx.Headers, string(c.signingSecret))
+func (c *Client) VerifyRequest(r *model.HTTPRequest) error {
+	sv, err := slack.NewSecretsVerifier(r.Headers, string(c.signingSecret))
 	if err != nil {
 		slog.Error("failed to create secrets verifier", "error", err)
 		return err
 	}
-	if _, err = sv.Write(ctx.Body); err != nil {
+	if _, err = sv.Write(r.Body); err != nil {
 		slog.Error("failed to write body to verifier", "error", err)
 		return err
 	}
