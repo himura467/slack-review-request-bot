@@ -45,14 +45,14 @@ type EventHandler interface {
 
 // CallbackEvent represents a Slack callback event
 type CallbackEvent struct {
-	channelID string
-	threadTS  string
+	ChannelID string
+	ThreadTS  string
 }
 
 func NewCallbackEvent(channelID, threadTS string) *CallbackEvent {
 	return &CallbackEvent{
-		channelID: channelID,
-		threadTS:  threadTS,
+		ChannelID: channelID,
+		ThreadTS:  threadTS,
 	}
 }
 
@@ -60,36 +60,27 @@ func (e *CallbackEvent) Handle(handler EventHandler) *HTTPResponse {
 	return handler.HandleCallback(e)
 }
 
-// GetChannelID returns the channel ID of the event
-func (e *CallbackEvent) GetChannelID() string {
-	return e.channelID
-}
-
 // IsThreadedMessage checks if the message is part of a thread
 func (e *CallbackEvent) IsThreadedMessage() bool {
-	return e.threadTS != ""
+	return e.ThreadTS != ""
 }
 
 // IsFromChannel checks if the message is from the specified channel
 func (e *CallbackEvent) IsFromChannel(channelID string) bool {
-	return e.channelID == channelID
+	return e.ChannelID == channelID
 }
 
 // URLVerificationEvent represents a Slack URL verification event
 type URLVerificationEvent struct {
-	challenge string
+	Challenge string
 }
 
 func NewURLVerificationEvent(challenge string) *URLVerificationEvent {
 	return &URLVerificationEvent{
-		challenge: challenge,
+		Challenge: challenge,
 	}
 }
 
 func (e *URLVerificationEvent) Handle(handler EventHandler) *HTTPResponse {
 	return handler.HandleURLVerification(e)
-}
-
-func (e *URLVerificationEvent) GetChallenge() string {
-	return e.challenge
 }

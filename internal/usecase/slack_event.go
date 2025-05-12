@@ -20,7 +20,7 @@ func (u *SlackUsecaseImpl) HandleCallback(event *model.CallbackEvent) *model.HTT
 		return model.NewStatusResponse(http.StatusInternalServerError)
 	}
 	messageText := "<@" + reviewer + "> このメッセージをレビューし、完了したら :white_check_mark: のリアクションをつけてください"
-	message := model.NewMessage(event.GetChannelID(), messageText)
+	message := model.NewMessage(event.ChannelID, messageText)
 	// Post the message to Slack
 	if err := u.slackRepo.PostMessage(message); err != nil {
 		slog.Error("failed to post message", "error", err)
@@ -31,5 +31,5 @@ func (u *SlackUsecaseImpl) HandleCallback(event *model.CallbackEvent) *model.HTT
 
 // HandleURLVerification handles URL verification events
 func (u *SlackUsecaseImpl) HandleURLVerification(event *model.URLVerificationEvent) *model.HTTPResponse {
-	return model.NewTextResponse(http.StatusOK, []byte(event.GetChallenge()))
+	return model.NewTextResponse(http.StatusOK, []byte(event.Challenge))
 }
