@@ -2,9 +2,7 @@ package infrastructure
 
 import (
 	"encoding/json"
-	"io"
 	"log/slog"
-	"net/http"
 
 	"github.com/himura467/slack-review-request-bot/internal/domain/model"
 	"github.com/himura467/slack-review-request-bot/internal/domain/repository"
@@ -26,27 +24,22 @@ func NewClient(oauthToken model.OAuthToken, signingSecret model.SigningSecret) *
 	}
 }
 
-func (c *Client) VerifyRequest(r *http.Request) ([]byte, error) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		slog.Error("failed to read request body", "error", err)
-		return nil, err
-	}
-	sv, err := slack.NewSecretsVerifier(r.Header, string(c.signingSecret))
+func (c *Client) VerifyRequest(r *model.HTTPRequest) error {
+	sv, err := slack.NewSecretsVerifier(r.Headers, string(c.signingSecret))
 	if err != nil {
 		slog.Error("failed to create secrets verifier", "error", err)
-		return nil, err
+		return err
 	}
-	if _, err = sv.Write(body); err != nil {
+	if _, err = sv.Write(r.Body); err != nil {
 		slog.Error("failed to write body to verifier", "error", err)
-		return nil, err
+		return err
 	}
 	if err := sv.Ensure(); err != nil {
 		slog.Error("failed to verify request", "error", err)
-		return nil, err
+		return err
 	}
 	slog.Info("request verified successfully")
-	return body, nil
+	return nil
 }
 
 func (c *Client) ParseEvent(body []byte) (model.Event, error) {
