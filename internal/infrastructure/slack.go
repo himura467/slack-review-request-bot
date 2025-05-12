@@ -55,7 +55,7 @@ func (c *Client) ParseEvent(body []byte) (model.Event, error) {
 			slog.Error("failed to parse challenge", "error", err)
 			return nil, err
 		}
-		return model.NewURLVerificationEvent(eventsAPIEvent.Type, r.Challenge), nil
+		return model.NewURLVerificationEvent(r.Challenge), nil
 	case slackevents.CallbackEvent:
 		innerEvent := eventsAPIEvent.InnerEvent
 		switch ev := innerEvent.Data.(type) {
@@ -64,14 +64,14 @@ func (c *Client) ParseEvent(body []byte) (model.Event, error) {
 				slog.Info("ignoring bot message", "bot_id", ev.BotID)
 				return nil, nil
 			}
-			return model.NewCallbackEvent(eventsAPIEvent.Type, ev.Channel, ev.ThreadTimeStamp), nil
+			return model.NewCallbackEvent(ev.Channel, ev.ThreadTimeStamp), nil
 		default:
-			slog.Error("unsupported inner event type", "type", ev)
+			slog.Info("unsupported inner event type", "type", ev)
 			return nil, nil
 		}
 	default:
-		slog.Error("unsupported event type", "type", eventsAPIEvent.Type)
-		return nil, err
+		slog.Info("unsupported event type", "type", eventsAPIEvent.Type)
+		return nil, nil
 	}
 }
 
