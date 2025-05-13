@@ -59,12 +59,8 @@ func (c *Client) ParseEvent(body []byte) (model.Event, error) {
 	case slackevents.CallbackEvent:
 		innerEvent := eventsAPIEvent.InnerEvent
 		switch ev := innerEvent.Data.(type) {
-		case *slackevents.MessageEvent:
-			if ev.BotID != "" {
-				slog.Info("ignoring bot message", "bot_id", ev.BotID)
-				return nil, nil
-			}
-			return model.NewCallbackEvent(ev.Channel, ev.ThreadTimeStamp), nil
+		case *slackevents.AppMentionEvent:
+			return model.NewAppMentionEvent(ev.Channel), nil
 		default:
 			slog.Info("unsupported inner event type", "type", ev)
 			return nil, nil

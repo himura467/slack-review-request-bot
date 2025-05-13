@@ -39,35 +39,23 @@ type Event interface {
 
 // EventHandler defines the interface for handling different types of events
 type EventHandler interface {
-	HandleCallback(event *CallbackEvent) *HTTPResponse
+	HandleAppMention(event *AppMentionEvent) *HTTPResponse
 	HandleURLVerification(event *URLVerificationEvent) *HTTPResponse
 }
 
-// CallbackEvent represents a Slack callback event
-type CallbackEvent struct {
+// AppMentionEvent represents a Slack app mention event
+type AppMentionEvent struct {
 	ChannelID string
-	ThreadTS  string
 }
 
-func NewCallbackEvent(channelID, threadTS string) *CallbackEvent {
-	return &CallbackEvent{
+func NewAppMentionEvent(channelID string) *AppMentionEvent {
+	return &AppMentionEvent{
 		ChannelID: channelID,
-		ThreadTS:  threadTS,
 	}
 }
 
-func (e *CallbackEvent) Handle(handler EventHandler) *HTTPResponse {
-	return handler.HandleCallback(e)
-}
-
-// IsThreadedMessage checks if the message is part of a thread
-func (e *CallbackEvent) IsThreadedMessage() bool {
-	return e.ThreadTS != ""
-}
-
-// IsFromChannel checks if the message is from the specified channel
-func (e *CallbackEvent) IsFromChannel(channelID string) bool {
-	return e.ChannelID == channelID
+func (e *AppMentionEvent) Handle(handler EventHandler) *HTTPResponse {
+	return handler.HandleAppMention(e)
 }
 
 // URLVerificationEvent represents a Slack URL verification event
