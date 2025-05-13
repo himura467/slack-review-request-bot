@@ -7,12 +7,8 @@ import (
 	"github.com/himura467/slack-review-request-bot/internal/domain/model"
 )
 
-// HandleCallback handles callback events
-func (u *SlackUsecaseImpl) HandleCallback(event *model.CallbackEvent) *model.HTTPResponse {
-	// Only respond to non-threaded messages
-	if event.IsThreadedMessage() {
-		return model.NewStatusResponse(http.StatusOK)
-	}
+// HandleAppMention handles app mention events
+func (u *SlackUsecaseImpl) HandleAppMention(event *model.AppMentionEvent) *model.HTTPResponse {
 	// Get random reviewer from configured list
 	reviewer, ok := u.reviewerIDs.GetRandomReviewer()
 	if !ok {
