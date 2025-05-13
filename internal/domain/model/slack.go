@@ -57,6 +57,7 @@ type AttachmentField struct {
 // Attachment represents a Slack message attachment
 type Attachment struct {
 	Text       string            `json:"text,omitempty"`
+	Color      string            `json:"color,omitempty"`
 	CallbackID string            `json:"callback_id,omitempty"`
 	Actions    []Action          `json:"actions,omitempty"`
 	Fields     []AttachmentField `json:"fields,omitempty"`
@@ -128,6 +129,7 @@ func NewUpdateMessage(channelID, text string, fields []AttachmentField) *Message
 		ReplaceOriginal: true,
 		Attachments: []Attachment{
 			{
+				Color:  "#F4631E",
 				Fields: fields,
 			},
 		},
