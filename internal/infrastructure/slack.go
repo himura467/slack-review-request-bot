@@ -89,79 +89,54 @@ func (c *Client) ParseInteraction(body []byte) (model.Event, error) {
 		slog.Error("failed to parse interaction", "error", err)
 		return nil, err
 	}
-	if interaction.Type != slack.InteractionTypeBlockActions {
+	if len(interaction.ActionCallback.AttachmentActions) == 0 {
 		return nil, nil
 	}
-	if len(interaction.ActionCallback.BlockActions) == 0 {
-		return nil, nil
-	}
-	action := interaction.ActionCallback.BlockActions[0]
+	action := interaction.ActionCallback.AttachmentActions[0]
 	var value string
-	if action.ActionID == "random_reviewer" {
+	if action.Name == "random_reviewer" {
 		value = "" // Empty value indicates random selection
-	} else {
-		value = action.SelectedOption.Value
+	} else if action.Name == "select_reviewer" && len(action.SelectedOptions) > 0 {
+		value = action.SelectedOptions[0].Value
 	}
-	return model.NewInteractiveMessageEvent(interaction.Channel.ID, action.ActionID, value), nil
+	return model.NewInteractiveMessageEvent(interaction.Channel.ID, action.Name, value), nil
 }
 
 func (c *Client) PostMessage(message *model.Message) error {
 	var options []slack.MsgOption
 	options = append(options, slack.MsgOptionText(message.Text, false))
 
-	if len(message.Blocks) > 0 {
-		var blocks []slack.Block
-		for _, b := range message.Blocks {
-			switch b.Type {
-			case "section":
-				blocks = append(blocks, slack.NewSectionBlock(
-					&slack.TextBlockObject{
-						Type: b.Text.Type,
-						Text: b.Text.Text,
-					},
-					nil,
-					nil,
-				))
-			case "actions":
-				var elements []slack.BlockElement
-				for _, e := range b.Elements {
-					switch e.Type {
-					case "button":
-						elements = append(elements, slack.NewButtonBlockElement(
-							e.ActionID,
-							e.ActionID,
-							&slack.TextBlockObject{
-								Type: e.Text.Type,
-								Text: e.Text.Text,
-							},
-						))
-					case "static_select":
-						var options []*slack.OptionBlockObject
-						for _, o := range e.Options {
-							options = append(options, slack.NewOptionBlockObject(
-								o.Value,
-								&slack.TextBlockObject{
-									Type: o.Text.Type,
-									Text: o.Text.Text,
-								},
-								nil,
-							))
-						}
-						elements = append(elements, slack.NewOptionsSelectBlockElement(
-							slack.OptTypeStatic,
-							&slack.TextBlockObject{
-								Type: e.Placeholder.Type,
-								Text: e.Placeholder.Text,
-							},
-							e.ActionID,
-							options...,
-						))
-					}
+	if len(message.Attachments) > 0 {
+		var attachments []slack.Attachment
+		for _, a := range message.Attachments {
+			var actions []slack.AttachmentAction
+			for _, act := range a.Actions {
+				action := slack.AttachmentAction{
+					Name:  act.Name,
+					Text:  act.Text,
+					Type:  slack.ActionType(act.Type),
+					Value: act.Value,
 				}
-				blocks = append(blocks, slack.NewActionBlock(b.BlockID, elements...))
+				if len(act.Options) > 0 {
+					options := make([]slack.AttachmentActionOption, len(act.Options))
+					for i, opt := range act.Options {
+						options[i] = slack.AttachmentActionOption{
+							Text:  opt.Text,
+							Value: opt.Value,
+						}
+					}
+					action.Options = options
+				}
+				actions = append(actions, action)
 			}
+			attachment := slack.Attachment{
+				Text:       a.Text,
+				CallbackID: a.CallbackID,
+				Actions:    actions,
+			}
+			attachments = append(attachments, attachment)
 		}
-		options = append(options, slack.MsgOptionBlocks(blocks...))
+		options = append(options, slack.MsgOptionAttachments(attachments...))
 	}
 
 	_, _, err := c.api.PostMessage(

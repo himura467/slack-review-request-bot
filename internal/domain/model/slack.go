@@ -35,40 +35,30 @@ func (r ReviewerMap) GetRandomReviewer() (ReviewerInfo, bool) {
 	}, true
 }
 
-// Text represents text in Slack Block Kit
-type Text struct {
-	Type string `json:"type"`
-	Text string `json:"text"`
+// Action represents a Slack message action
+type Action struct {
+	Name    string `json:"name"`
+	Text    string `json:"text"`
+	Type    string `json:"type"`
+	Value   string `json:"value,omitempty"`
+	Options []struct {
+		Text  string `json:"text"`
+		Value string `json:"value"`
+	} `json:"options,omitempty"`
 }
 
-// Option represents an option in a Slack Block Kit select menu
-type Option struct {
-	Text  Text   `json:"text"`
-	Value string `json:"value"`
-}
-
-// Element represents an interactive element in Slack Block Kit
-type Element struct {
-	Type        string   `json:"type"`
-	ActionID    string   `json:"action_id,omitempty"`
-	Text        *Text    `json:"text,omitempty"`
-	Options     []Option `json:"options,omitempty"`
-	Placeholder *Text    `json:"placeholder,omitempty"`
-}
-
-// Block represents a Slack Block Kit block
-type Block struct {
-	Type     string    `json:"type"`
-	Text     *Text     `json:"text,omitempty"`
-	Elements []Element `json:"elements,omitempty"`
-	BlockID  string    `json:"block_id,omitempty"`
+// Attachment represents a Slack message attachment
+type Attachment struct {
+	Text       string   `json:"text,omitempty"`
+	CallbackID string   `json:"callback_id,omitempty"`
+	Actions    []Action `json:"actions,omitempty"`
 }
 
 // Message represents a Slack message
 type Message struct {
-	ChannelID string  `json:"channel"`
-	Text      string  `json:"text"`
-	Blocks    []Block `json:"blocks,omitempty"`
+	ChannelID   string       `json:"channel"`
+	Text        string       `json:"text,omitempty"`
+	Attachments []Attachment `json:"attachments,omitempty"`
 }
 
 // NewMessage creates a new Slack message
@@ -79,50 +69,40 @@ func NewMessage(channelID, text string) *Message {
 	}
 }
 
-// NewReviewerSelectionMessage creates a message with reviewer selection components using Slack Block Kit
+// NewReviewerSelectionMessage creates a message with reviewer selection components using Slack Attachments
 func NewReviewerSelectionMessage(channelID string, text string, reviewerMap ReviewerMap) *Message {
 	// Create options for the select menu
-	options := make([]Option, 0, len(reviewerMap))
+	options := make([]struct {
+		Text  string `json:"text"`
+		Value string `json:"value"`
+	}, 0, len(reviewerMap))
 	for displayName, memberID := range reviewerMap {
-		options = append(options, Option{
-			Text: Text{
-				Type: "plain_text",
-				Text: displayName,
-			},
+		options = append(options, struct {
+			Text  string `json:"text"`
+			Value string `json:"value"`
+		}{
+			Text:  displayName,
 			Value: memberID,
 		})
 	}
 
 	return &Message{
 		ChannelID: channelID,
-		Text:      text,
-		Blocks: []Block{
+		Attachments: []Attachment{
 			{
-				Type: "section",
-				Text: &Text{
-					Type: "mrkdwn",
-					Text: text,
-				},
-			},
-			{
-				Type:    "actions",
-				BlockID: "reviewer_selection",
-				Elements: []Element{
+				Text:       text,
+				CallbackID: "reviewer_selection",
+				Actions: []Action{
 					{
-						Type:     "button",
-						ActionID: "random_reviewer",
-						Text: &Text{
-							Type: "plain_text",
-							Text: "Random",
-						},
+						Name:  "random_reviewer",
+						Text:  "Random",
+						Type:  "button",
+						Value: "",
 					},
 					{
-						Type:     "static_select",
-						ActionID: "select_reviewer",
-						Placeholder: &Text{
-							Type: "plain_text",
-							Text: "レビュワーを選択",
-						},
+						Name:    "select_reviewer",
+						Text:    "レビュワーを選択",
+						Type:    "select",
 						Options: options,
 					},
 				},
