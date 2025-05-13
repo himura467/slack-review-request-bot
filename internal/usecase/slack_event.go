@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"encoding/json"
 	"log/slog"
 	"net/http"
 
@@ -37,14 +38,22 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 		slog.Error("unknown action ID", "action_id", event.ActionID)
 		return model.NewStatusResponse(http.StatusBadRequest)
 	}
-	// Create and send the reviewer notification message
-	messageText := "<@" + reviewerID + "> このメッセージをレビューし、完了したら :white_check_mark: のリアクションをつけてください"
-	message := model.NewMessage(event.ChannelID, messageText)
-	if err := u.slackRepo.PostMessage(message); err != nil {
-		slog.Error("failed to post message", "error", err)
+	messageText := "このメッセージをレビューし、完了したら :white_check_mark: のリアクションをつけてください。\nメッセージ内のリンクは *シークレットウィンドウ* で開いて確認するようにしてください。"
+	fields := []model.AttachmentField{
+		{
+			Title: "レビュワー",
+			Value: "<@" + reviewerID + ">",
+			Short: false,
+		},
+	}
+	message := model.NewUpdateMessage(event.ChannelID, messageText, fields)
+	// Encode response as JSON
+	responseJSON, err := json.Marshal(message)
+	if err != nil {
+		slog.Error("failed to marshal response", "error", err)
 		return model.NewStatusResponse(http.StatusInternalServerError)
 	}
-	return model.NewStatusResponse(http.StatusOK)
+	return model.NewJSONResponse(http.StatusOK, responseJSON)
 }
 
 // HandleURLVerification handles URL verification events

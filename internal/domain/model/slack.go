@@ -47,18 +47,27 @@ type Action struct {
 	} `json:"options,omitempty"`
 }
 
+// AttachmentField represents a field in a Slack message attachment
+type AttachmentField struct {
+	Title string `json:"title"`
+	Value string `json:"value,omitempty"`
+	Short bool   `json:"short,omitempty"`
+}
+
 // Attachment represents a Slack message attachment
 type Attachment struct {
-	Text       string   `json:"text,omitempty"`
-	CallbackID string   `json:"callback_id,omitempty"`
-	Actions    []Action `json:"actions,omitempty"`
+	Text       string            `json:"text,omitempty"`
+	CallbackID string            `json:"callback_id,omitempty"`
+	Actions    []Action          `json:"actions,omitempty"`
+	Fields     []AttachmentField `json:"fields,omitempty"`
 }
 
 // Message represents a Slack message
 type Message struct {
-	ChannelID   string       `json:"channel"`
-	Text        string       `json:"text,omitempty"`
-	Attachments []Attachment `json:"attachments,omitempty"`
+	ChannelID       string       `json:"channel"`
+	Text            string       `json:"text,omitempty"`
+	Attachments     []Attachment `json:"attachments,omitempty"`
+	ReplaceOriginal bool         `json:"replace_original,omitempty"`
 }
 
 // NewMessage creates a new Slack message
@@ -106,6 +115,20 @@ func NewReviewerSelectionMessage(channelID string, text string, reviewerMap Revi
 						Options: options,
 					},
 				},
+			},
+		},
+	}
+}
+
+// NewUpdateMessage creates a message that updates the original message
+func NewUpdateMessage(channelID, text string, fields []AttachmentField) *Message {
+	return &Message{
+		ChannelID:       channelID,
+		Text:            text,
+		ReplaceOriginal: true,
+		Attachments: []Attachment{
+			{
+				Fields: fields,
 			},
 		},
 	}

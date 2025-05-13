@@ -22,3 +22,12 @@ func NewTextResponse(statusCode int, body []byte) *HTTPResponse {
 		ContentType: "text/plain",
 	}
 }
+
+// NewJSONResponse creates a new HTTPResponse with JSON content
+func NewJSONResponse(statusCode int, body []byte) *HTTPResponse {
+	return &HTTPResponse{
+		StatusCode:  statusCode,
+		Body:        body,
+		ContentType: "application/json",
+	}
+}
