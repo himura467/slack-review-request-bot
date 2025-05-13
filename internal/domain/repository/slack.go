@@ -10,6 +10,8 @@ type SlackRepository interface {
 	VerifyRequest(r *model.HTTPRequest) error
 	// ParseEvent parses the raw event data into a domain event
 	ParseEvent(body []byte) (model.Event, error)
+	// ParseInteraction parses the raw interaction data into a domain event
+	ParseInteraction(body []byte) (model.Event, error)
 	// PostMessage posts a message to a Slack channel
 	PostMessage(message *model.Message) error
 }

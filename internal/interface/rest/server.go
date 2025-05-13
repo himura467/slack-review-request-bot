@@ -27,6 +27,7 @@ func (s *Server) Run() error {
 	}
 
 	s.router.Post("/slack/events", s.controller.HandleEvent)
+	s.router.Post("/slack/interactions", s.controller.HandleInteraction)
 
 	return http.ListenAndServe(":"+port, s.router)
 }

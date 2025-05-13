@@ -44,32 +44,7 @@ func (c *Client) VerifyRequest(r *model.HTTPRequest) error {
 }
 
 func (c *Client) ParseEvent(body []byte) (model.Event, error) {
-	// Try to parse as form-encoded payload first
-	payloadStr := string(body)
-	if len(payloadStr) > 8 && payloadStr[:8] == "payload=" {
-		var interaction slack.InteractionCallback
-		// URL decode and remove "payload=" prefix
-		decoded, err := url.QueryUnescape(payloadStr[8:])
-		if err != nil {
-			slog.Error("failed to unescape payload", "error", err)
-			return nil, err
-		}
-		if err := json.Unmarshal([]byte(decoded), &interaction); err == nil && interaction.Type == slack.InteractionTypeBlockActions {
-			// This is an interactive message
-			if len(interaction.ActionCallback.BlockActions) > 0 {
-				action := interaction.ActionCallback.BlockActions[0]
-				var value string
-				if action.ActionID == "random_reviewer" {
-					value = "" // Empty value indicates random selection
-				} else {
-					value = action.SelectedOption.Value
-				}
-				return model.NewInteractiveMessageEvent(interaction.Channel.ID, action.ActionID, value), nil
-			}
-		}
-		return nil, nil // Not a valid interaction
-	}
-	// If not an interaction, try to parse as regular event
+	// Parse regular Slack events
 	eventsAPIEvent, err := slackevents.ParseEvent(body, slackevents.OptionNoVerifyToken())
 	if err != nil {
 		slog.Error("failed to parse event", "error", err)
@@ -96,6 +71,38 @@ func (c *Client) ParseEvent(body []byte) (model.Event, error) {
 		slog.Info("unsupported event type", "type", eventsAPIEvent.Type)
 		return nil, nil
 	}
+}
+
+func (c *Client) ParseInteraction(body []byte) (model.Event, error) {
+	payloadStr := string(body)
+	if len(payloadStr) <= 8 || payloadStr[:8] != "payload=" {
+		return nil, nil
+	}
+	// URL decode and remove "payload=" prefix
+	decoded, err := url.QueryUnescape(payloadStr[8:])
+	if err != nil {
+		slog.Error("failed to unescape payload", "error", err)
+		return nil, err
+	}
+	var interaction slack.InteractionCallback
+	if err := json.Unmarshal([]byte(decoded), &interaction); err != nil {
+		slog.Error("failed to parse interaction", "error", err)
+		return nil, err
+	}
+	if interaction.Type != slack.InteractionTypeBlockActions {
+		return nil, nil
+	}
+	if len(interaction.ActionCallback.BlockActions) == 0 {
+		return nil, nil
+	}
+	action := interaction.ActionCallback.BlockActions[0]
+	var value string
+	if action.ActionID == "random_reviewer" {
+		value = "" // Empty value indicates random selection
+	} else {
+		value = action.SelectedOption.Value
+	}
+	return model.NewInteractiveMessageEvent(interaction.Channel.ID, action.ActionID, value), nil
 }
 
 func (c *Client) PostMessage(message *model.Message) error {
