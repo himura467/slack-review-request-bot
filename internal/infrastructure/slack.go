@@ -72,9 +72,67 @@ func (c *Client) ParseEvent(body []byte) (model.Event, error) {
 }
 
 func (c *Client) PostMessage(message *model.Message) error {
+	var options []slack.MsgOption
+	options = append(options, slack.MsgOptionText(message.Text, false))
+
+	if len(message.Blocks) > 0 {
+		var blocks []slack.Block
+		for _, b := range message.Blocks {
+			switch b.Type {
+			case "section":
+				blocks = append(blocks, slack.NewSectionBlock(
+					&slack.TextBlockObject{
+						Type: b.Text.Type,
+						Text: b.Text.Text,
+					},
+					nil,
+					nil,
+				))
+			case "actions":
+				var elements []slack.BlockElement
+				for _, e := range b.Elements {
+					switch e.Type {
+					case "button":
+						elements = append(elements, slack.NewButtonBlockElement(
+							e.ActionID,
+							e.ActionID,
+							&slack.TextBlockObject{
+								Type: e.Text.Type,
+								Text: e.Text.Text,
+							},
+						))
+					case "static_select":
+						var options []*slack.OptionBlockObject
+						for _, o := range e.Options {
+							options = append(options, slack.NewOptionBlockObject(
+								o.Value,
+								&slack.TextBlockObject{
+									Type: o.Text.Type,
+									Text: o.Text.Text,
+								},
+								nil,
+							))
+						}
+						elements = append(elements, slack.NewOptionsSelectBlockElement(
+							slack.OptTypeStatic,
+							&slack.TextBlockObject{
+								Type: e.Placeholder.Type,
+								Text: e.Placeholder.Text,
+							},
+							e.ActionID,
+							options...,
+						))
+					}
+				}
+				blocks = append(blocks, slack.NewActionBlock(b.BlockID, elements...))
+			}
+		}
+		options = append(options, slack.MsgOptionBlocks(blocks...))
+	}
+
 	_, _, err := c.api.PostMessage(
 		message.ChannelID,
-		slack.MsgOptionText(message.Text, false),
+		options...,
 	)
 	if err != nil {
 		slog.Error("failed to post message", "error", err)

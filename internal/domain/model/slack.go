@@ -35,16 +35,99 @@ func (r ReviewerMap) GetRandomReviewer() (ReviewerInfo, bool) {
 	}, true
 }
 
-// Message represents a Slack message
-type Message struct {
-	ChannelID string
-	Text      string
+// Text represents text in Slack Block Kit
+type Text struct {
+	Type string `json:"type"`
+	Text string `json:"text"`
 }
 
+// Option represents an option in a Slack Block Kit select menu
+type Option struct {
+	Text  Text   `json:"text"`
+	Value string `json:"value"`
+}
+
+// Element represents an interactive element in Slack Block Kit
+type Element struct {
+	Type        string   `json:"type"`
+	ActionID    string   `json:"action_id,omitempty"`
+	Text        *Text    `json:"text,omitempty"`
+	Options     []Option `json:"options,omitempty"`
+	Placeholder *Text    `json:"placeholder,omitempty"`
+}
+
+// Block represents a Slack Block Kit block
+type Block struct {
+	Type     string    `json:"type"`
+	Text     *Text     `json:"text,omitempty"`
+	Elements []Element `json:"elements,omitempty"`
+	BlockID  string    `json:"block_id,omitempty"`
+}
+
+// Message represents a Slack message
+type Message struct {
+	ChannelID string  `json:"channel"`
+	Text      string  `json:"text"`
+	Blocks    []Block `json:"blocks,omitempty"`
+}
+
+// NewMessage creates a new Slack message
 func NewMessage(channelID, text string) *Message {
 	return &Message{
 		ChannelID: channelID,
 		Text:      text,
+	}
+}
+
+// NewReviewerSelectionMessage creates a message with reviewer selection components using Slack Block Kit
+func NewReviewerSelectionMessage(channelID string, text string, reviewerMap ReviewerMap) *Message {
+	// Create options for the select menu
+	options := make([]Option, 0, len(reviewerMap))
+	for displayName, memberID := range reviewerMap {
+		options = append(options, Option{
+			Text: Text{
+				Type: "plain_text",
+				Text: displayName,
+			},
+			Value: memberID,
+		})
+	}
+
+	return &Message{
+		ChannelID: channelID,
+		Text:      text,
+		Blocks: []Block{
+			{
+				Type: "section",
+				Text: &Text{
+					Type: "mrkdwn",
+					Text: text,
+				},
+			},
+			{
+				Type:    "actions",
+				BlockID: "reviewer_selection",
+				Elements: []Element{
+					{
+						Type:     "button",
+						ActionID: "random_reviewer",
+						Text: &Text{
+							Type: "plain_text",
+							Text: "Random",
+						},
+					},
+					{
+						Type:     "static_select",
+						ActionID: "select_reviewer",
+						Placeholder: &Text{
+							Type: "plain_text",
+							Text: "レビュワーを選択",
+						},
+						Options: options,
+					},
+				},
+			},
+		},
 	}
 }
 
