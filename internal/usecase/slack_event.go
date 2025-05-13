@@ -9,13 +9,13 @@ import (
 
 // HandleAppMention handles app mention events
 func (u *SlackUsecaseImpl) HandleAppMention(event *model.AppMentionEvent) *model.HTTPResponse {
-	// Get random reviewer from configured list
-	reviewer, ok := u.reviewerIDs.GetRandomReviewer()
+	// Get random reviewer from configured map
+	reviewer, ok := u.reviewerMap.GetRandomReviewer()
 	if !ok {
-		slog.Error("no reviewer IDs configured")
+		slog.Error("no reviewers configured")
 		return model.NewStatusResponse(http.StatusInternalServerError)
 	}
-	messageText := "<@" + reviewer + "> このメッセージをレビューし、完了したら :white_check_mark: のリアクションをつけてください"
+	messageText := "<@" + reviewer.MemberID + "> このメッセージをレビューし、完了したら :white_check_mark: のリアクションをつけてください"
 	message := model.NewMessage(event.ChannelID, messageText)
 	// Post the message to Slack
 	if err := u.slackRepo.PostMessage(message); err != nil {

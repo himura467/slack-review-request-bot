@@ -14,16 +14,16 @@ type SlackUsecase interface {
 
 type SlackUsecaseImpl struct {
 	slackRepo   repository.SlackRepository
-	reviewerIDs model.ReviewerIDs
+	reviewerMap model.ReviewerMap
 }
 
 var _ SlackUsecase = (*SlackUsecaseImpl)(nil)
 var _ model.EventHandler = (*SlackUsecaseImpl)(nil)
 
-func NewSlackUsecase(slackRepo repository.SlackRepository, reviewerIDs model.ReviewerIDs) *SlackUsecaseImpl {
+func NewSlackUsecase(slackRepo repository.SlackRepository, reviewerMap model.ReviewerMap) *SlackUsecaseImpl {
 	return &SlackUsecaseImpl{
 		slackRepo:   slackRepo,
-		reviewerIDs: reviewerIDs,
+		reviewerMap: reviewerMap,
 	}
 }
 

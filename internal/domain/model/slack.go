@@ -8,15 +8,31 @@ type OAuthToken string
 // SigningSecret represents a Slack signing secret
 type SigningSecret string
 
-// ReviewerIDs represents a list of Slack user IDs that can be assigned as reviewers
-type ReviewerIDs []string
+// ReviewerMap represents a mapping of display names to Slack member IDs for reviewers
+type ReviewerMap map[string]string
 
-// GetRandomReviewer returns a random reviewer ID from the list
-func (r ReviewerIDs) GetRandomReviewer() (string, bool) {
+// ReviewerInfo contains both the display name and member ID of a reviewer
+type ReviewerInfo struct {
+	DisplayName string
+	MemberID    string
+}
+
+// GetRandomReviewer returns a random reviewer with both display name and member ID from the map
+func (r ReviewerMap) GetRandomReviewer() (ReviewerInfo, bool) {
 	if len(r) == 0 {
-		return "", false
+		return ReviewerInfo{}, false
 	}
-	return r[rand.Intn(len(r))], true
+	// Get all display names as slice
+	displayNames := make([]string, 0, len(r))
+	for name := range r {
+		displayNames = append(displayNames, name)
+	}
+	// Select random display name
+	selectedName := displayNames[rand.Intn(len(displayNames))]
+	return ReviewerInfo{
+		DisplayName: selectedName,
+		MemberID:    r[selectedName],
+	}, true
 }
 
 // Message represents a Slack message
