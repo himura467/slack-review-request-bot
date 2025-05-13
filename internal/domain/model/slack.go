@@ -139,6 +139,7 @@ type Event interface {
 // EventHandler defines the interface for handling different types of events
 type EventHandler interface {
 	HandleAppMention(event *AppMentionEvent) *HTTPResponse
+	HandleInteractiveMessage(event *InteractiveMessageEvent) *HTTPResponse
 	HandleURLVerification(event *URLVerificationEvent) *HTTPResponse
 }
 
@@ -155,6 +156,25 @@ func NewAppMentionEvent(channelID string) *AppMentionEvent {
 
 func (e *AppMentionEvent) Handle(handler EventHandler) *HTTPResponse {
 	return handler.HandleAppMention(e)
+}
+
+// InteractiveMessageEvent represents a Slack interactive message event
+type InteractiveMessageEvent struct {
+	ChannelID string
+	ActionID  string
+	Value     string
+}
+
+func NewInteractiveMessageEvent(channelID, actionID, value string) *InteractiveMessageEvent {
+	return &InteractiveMessageEvent{
+		ChannelID: channelID,
+		ActionID:  actionID,
+		Value:     value,
+	}
+}
+
+func (e *InteractiveMessageEvent) Handle(handler EventHandler) *HTTPResponse {
+	return handler.HandleInteractiveMessage(e)
 }
 
 // URLVerificationEvent represents a Slack URL verification event
