@@ -14,4 +14,6 @@ type SlackRepository interface {
 	ParseInteraction(body []byte) (model.Event, error)
 	// PostMessage posts a message to a Slack channel
 	PostMessage(message *model.Message) error
+	// DeleteMessage deletes a message from a Slack channel
+	DeleteMessage(channelID, timestamp string) error
 }

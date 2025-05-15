@@ -1,7 +1,6 @@
 package usecase
 
 import (
-	"encoding/json"
 	"log/slog"
 	"net/http"
 
@@ -48,6 +47,7 @@ func (u *SlackUsecaseImpl) HandleAppMention(event *model.AppMentionEvent) *model
 			},
 		},
 		false,
+		event.ThreadTS,
 	)
 	// Post the message to Slack
 	if err := u.slackRepo.PostMessage(message); err != nil {
@@ -111,6 +111,12 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 			Value: reviewerName,
 		},
 	}
+	// Delete the original message
+	if err := u.slackRepo.DeleteMessage(event.ChannelID, event.MessageTS); err != nil {
+		slog.Error("failed to delete message", "error", err)
+		return model.NewStatusResponse(http.StatusInternalServerError)
+	}
+	// Create and post new message in the thread
 	message := model.NewMessage(
 		event.ChannelID,
 		messageText,
@@ -122,15 +128,15 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 				CallbackID: "reviewer_action",
 			},
 		},
-		true,
+		false,
+		event.ThreadTS,
 	)
-	// Encode response as JSON
-	responseJSON, err := json.Marshal(message)
-	if err != nil {
-		slog.Error("failed to marshal response", "error", err)
+	// Post the new message
+	if err := u.slackRepo.PostMessage(message); err != nil {
+		slog.Error("failed to post message", "error", err)
 		return model.NewStatusResponse(http.StatusInternalServerError)
 	}
-	return model.NewJSONResponse(http.StatusOK, responseJSON)
+	return model.NewStatusResponse(http.StatusOK)
 }
 
 // HandleURLVerification handles URL verification events
