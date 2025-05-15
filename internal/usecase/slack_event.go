@@ -10,7 +10,6 @@ import (
 
 // HandleAppMention handles app mention events
 func (u *SlackUsecaseImpl) HandleAppMention(event *model.AppMentionEvent) *model.HTTPResponse {
-	messageText := "レビュワーを選択してください"
 	// Create options for the select menu
 	options := make([]struct {
 		Text  string `json:"text"`
@@ -27,10 +26,10 @@ func (u *SlackUsecaseImpl) HandleAppMention(event *model.AppMentionEvent) *model
 	}
 	message := model.NewMessage(
 		event.ChannelID,
-		messageText,
+		"レビュワーを選択してください",
 		[]model.Attachment{
 			{
-				Text:       messageText,
+				Text:       "ランダム指定もできるよ",
 				CallbackID: "reviewer_selection",
 				Actions: []model.Action{
 					{
