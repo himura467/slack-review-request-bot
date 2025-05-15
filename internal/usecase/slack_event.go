@@ -11,7 +11,45 @@ import (
 // HandleAppMention handles app mention events
 func (u *SlackUsecaseImpl) HandleAppMention(event *model.AppMentionEvent) *model.HTTPResponse {
 	messageText := "レビュワーを選択してください"
-	message := model.NewReviewerSelectionMessage(event.ChannelID, messageText, u.reviewerMap)
+	// Create options for the select menu
+	options := make([]struct {
+		Text  string `json:"text"`
+		Value string `json:"value"`
+	}, 0, len(u.reviewerMap))
+	for displayName := range u.reviewerMap {
+		options = append(options, struct {
+			Text  string `json:"text"`
+			Value string `json:"value"`
+		}{
+			Text:  displayName,
+			Value: displayName,
+		})
+	}
+	message := model.NewMessage(
+		event.ChannelID,
+		messageText,
+		[]model.Attachment{
+			{
+				Text:       messageText,
+				CallbackID: "reviewer_selection",
+				Actions: []model.Action{
+					{
+						Name:  "random_reviewer",
+						Text:  "Random",
+						Type:  "button",
+						Value: "",
+					},
+					{
+						Name:    "select_reviewer",
+						Text:    "レビュワーを選択",
+						Type:    "select",
+						Options: options,
+					},
+				},
+			},
+		},
+		false,
+	)
 	// Post the message to Slack
 	if err := u.slackRepo.PostMessage(message); err != nil {
 		slog.Error("failed to post message", "error", err)
@@ -74,7 +112,19 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 			Value: reviewerName,
 		},
 	}
-	message := model.NewUpdateMessage(event.ChannelID, messageText, "reviewer_action", fields, actions)
+	message := model.NewMessage(
+		event.ChannelID,
+		messageText,
+		[]model.Attachment{
+			{
+				Color:      "#F4631E",
+				Fields:     fields,
+				Actions:    actions,
+				CallbackID: "reviewer_action",
+			},
+		},
+		true,
+	)
 	// Encode response as JSON
 	responseJSON, err := json.Marshal(message)
 	if err != nil {

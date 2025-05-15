@@ -71,70 +71,12 @@ type Message struct {
 	ReplaceOriginal bool         `json:"replace_original,omitempty"`
 }
 
-// NewMessage creates a new Slack message
-func NewMessage(channelID, text string) *Message {
-	return &Message{
-		ChannelID: channelID,
-		Text:      text,
-	}
-}
-
-// NewReviewerSelectionMessage creates a message with reviewer selection components using Slack Attachments
-func NewReviewerSelectionMessage(channelID string, text string, reviewerMap ReviewerMap) *Message {
-	// Create options for the select menu
-	options := make([]struct {
-		Text  string `json:"text"`
-		Value string `json:"value"`
-	}, 0, len(reviewerMap))
-	for displayName := range reviewerMap {
-		options = append(options, struct {
-			Text  string `json:"text"`
-			Value string `json:"value"`
-		}{
-			Text:  displayName,
-			Value: displayName,
-		})
-	}
-
-	return &Message{
-		ChannelID: channelID,
-		Attachments: []Attachment{
-			{
-				Text:       text,
-				CallbackID: "reviewer_selection",
-				Actions: []Action{
-					{
-						Name:  "random_reviewer",
-						Text:  "Random",
-						Type:  "button",
-						Value: "",
-					},
-					{
-						Name:    "select_reviewer",
-						Text:    "レビュワーを選択",
-						Type:    "select",
-						Options: options,
-					},
-				},
-			},
-		},
-	}
-}
-
-// NewUpdateMessage creates a message that updates the original message
-func NewUpdateMessage(channelID, text, callbackID string, fields []AttachmentField, actions []Action) *Message {
+func NewMessage(channelID, text string, attachments []Attachment, replaceOriginal bool) *Message {
 	return &Message{
 		ChannelID:       channelID,
 		Text:            text,
-		ReplaceOriginal: true,
-		Attachments: []Attachment{
-			{
-				Color:      "#F4631E",
-				Fields:     fields,
-				Actions:    actions,
-				CallbackID: callbackID,
-			},
-		},
+		Attachments:     attachments,
+		ReplaceOriginal: replaceOriginal,
 	}
 }
 
