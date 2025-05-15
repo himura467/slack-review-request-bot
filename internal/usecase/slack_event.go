@@ -72,7 +72,7 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 			Value: reviewerID,
 		},
 	}
-	message := model.NewUpdateMessage(event.ChannelID, messageText, fields, actions)
+	message := model.NewUpdateMessage(event.ChannelID, messageText, "reviewer_action", fields, actions)
 	// Encode response as JSON
 	responseJSON, err := json.Marshal(message)
 	if err != nil {
