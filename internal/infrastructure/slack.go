@@ -55,7 +55,12 @@ func (c *Client) ParseEvent(body []byte) (model.Event, error) {
 		innerEvent := eventsAPIEvent.InnerEvent
 		switch ev := innerEvent.Data.(type) {
 		case *slackevents.AppMentionEvent:
-			return model.NewAppMentionEvent(ev.Channel), nil
+			// If the message is not in a thread, use its own timestamp as the thread timestamp
+			threadTS := ev.ThreadTimeStamp
+			if threadTS == "" {
+				threadTS = ev.TimeStamp
+			}
+			return model.NewAppMentionEvent(ev.Channel, threadTS), nil
 		default:
 			slog.Info("unsupported inner event type", "type", ev)
 			return nil, nil
@@ -99,12 +104,29 @@ func (c *Client) ParseInteraction(body []byte) (model.Event, error) {
 	} else if action.Name == "select_reviewer" && len(action.SelectedOptions) > 0 {
 		value = action.SelectedOptions[0].Value
 	}
-	return model.NewInteractiveMessageEvent(interaction.Channel.ID, action.Name, value), nil
+	// Get thread timestamp from the message
+	threadTS := interaction.OriginalMessage.ThreadTimestamp
+	if threadTS == "" {
+		threadTS = interaction.OriginalMessage.Timestamp
+	}
+	return model.NewInteractiveMessageEvent(
+		interaction.Channel.ID,
+		action.Name,
+		value,
+		interaction.MessageTs,
+		threadTS,
+	), nil
 }
 
 func (c *Client) PostMessage(message *model.Message) error {
 	var options []slack.MsgOption
 	options = append(options, slack.MsgOptionText(message.Text, false))
+	// When ThreadTS is set, ensure the message is posted in that thread
+	if message.ThreadTS != "" {
+		options = append(options, slack.MsgOptionPostMessageParameters(slack.PostMessageParameters{
+			ThreadTimestamp: message.ThreadTS,
+		}))
+	}
 
 	if len(message.Attachments) > 0 {
 		var attachments []slack.Attachment
@@ -118,14 +140,14 @@ func (c *Client) PostMessage(message *model.Message) error {
 					Value: act.Value,
 				}
 				if len(act.Options) > 0 {
-					options := make([]slack.AttachmentActionOption, len(act.Options))
+					actionOptions := make([]slack.AttachmentActionOption, len(act.Options))
 					for i, opt := range act.Options {
-						options[i] = slack.AttachmentActionOption{
+						actionOptions[i] = slack.AttachmentActionOption{
 							Text:  opt.Text,
 							Value: opt.Value,
 						}
 					}
-					action.Options = options
+					action.Options = actionOptions
 				}
 				actions = append(actions, action)
 			}
@@ -133,6 +155,16 @@ func (c *Client) PostMessage(message *model.Message) error {
 				Text:       a.Text,
 				CallbackID: a.CallbackID,
 				Actions:    actions,
+				Color:      a.Color,
+				Fields:     make([]slack.AttachmentField, len(a.Fields)),
+			}
+			// Convert Fields
+			for i, f := range a.Fields {
+				attachment.Fields[i] = slack.AttachmentField{
+					Title: f.Title,
+					Value: f.Value,
+					Short: f.Short,
+				}
 			}
 			attachments = append(attachments, attachment)
 		}
@@ -148,5 +180,15 @@ func (c *Client) PostMessage(message *model.Message) error {
 		return err
 	}
 	slog.Info("message posted successfully", "channel", message.ChannelID)
+	return nil
+}
+
+func (c *Client) DeleteMessage(channelID, timestamp string) error {
+	_, _, err := c.api.DeleteMessage(channelID, timestamp)
+	if err != nil {
+		slog.Error("failed to delete message", "error", err)
+		return err
+	}
+	slog.Info("message deleted successfully", "channel", channelID)
 	return nil
 }

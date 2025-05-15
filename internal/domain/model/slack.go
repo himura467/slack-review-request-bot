@@ -69,14 +69,16 @@ type Message struct {
 	Text            string       `json:"text,omitempty"`
 	Attachments     []Attachment `json:"attachments,omitempty"`
 	ReplaceOriginal bool         `json:"replace_original,omitempty"`
+	ThreadTS        string       `json:"thread_ts,omitempty"`
 }
 
-func NewMessage(channelID, text string, attachments []Attachment, replaceOriginal bool) *Message {
+func NewMessage(channelID, text string, attachments []Attachment, replaceOriginal bool, threadTS string) *Message {
 	return &Message{
 		ChannelID:       channelID,
 		Text:            text,
 		Attachments:     attachments,
 		ReplaceOriginal: replaceOriginal,
+		ThreadTS:        threadTS,
 	}
 }
 
@@ -95,11 +97,13 @@ type EventHandler interface {
 // AppMentionEvent represents a Slack app mention event
 type AppMentionEvent struct {
 	ChannelID string
+	ThreadTS  string
 }
 
-func NewAppMentionEvent(channelID string) *AppMentionEvent {
+func NewAppMentionEvent(channelID string, threadTS string) *AppMentionEvent {
 	return &AppMentionEvent{
 		ChannelID: channelID,
+		ThreadTS:  threadTS,
 	}
 }
 
@@ -112,13 +116,17 @@ type InteractiveMessageEvent struct {
 	ChannelID string
 	ActionID  string
 	Value     string
+	MessageTS string
+	ThreadTS  string
 }
 
-func NewInteractiveMessageEvent(channelID, actionID, value string) *InteractiveMessageEvent {
+func NewInteractiveMessageEvent(channelID, actionID, value, messageTS, threadTS string) *InteractiveMessageEvent {
 	return &InteractiveMessageEvent{
 		ChannelID: channelID,
 		ActionID:  actionID,
 		Value:     value,
+		MessageTS: messageTS,
+		ThreadTS:  threadTS,
 	}
 }
 
