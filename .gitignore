@@ -23,3 +23,6 @@ go.work.sum
 
 # env file
 .env
+
+# reviewer_map.json
+reviewer_map.json
