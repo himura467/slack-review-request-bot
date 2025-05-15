@@ -3,6 +3,7 @@ package infrastructure
 import (
 	"encoding/json"
 	"log/slog"
+	"net/url"
 
 	"github.com/himura467/slack-review-request-bot/internal/domain/model"
 	"github.com/himura467/slack-review-request-bot/internal/domain/repository"
@@ -43,19 +44,13 @@ func (c *Client) VerifyRequest(r *model.HTTPRequest) error {
 }
 
 func (c *Client) ParseEvent(body []byte) (model.Event, error) {
+	// Parse regular Slack events
 	eventsAPIEvent, err := slackevents.ParseEvent(body, slackevents.OptionNoVerifyToken())
 	if err != nil {
 		slog.Error("failed to parse event", "error", err)
 		return nil, err
 	}
 	switch eventsAPIEvent.Type {
-	case slackevents.URLVerification:
-		var r *slackevents.ChallengeResponse
-		if err := json.Unmarshal(body, &r); err != nil {
-			slog.Error("failed to parse challenge", "error", err)
-			return nil, err
-		}
-		return model.NewURLVerificationEvent(r.Challenge), nil
 	case slackevents.CallbackEvent:
 		innerEvent := eventsAPIEvent.InnerEvent
 		switch ev := innerEvent.Data.(type) {
@@ -65,16 +60,88 @@ func (c *Client) ParseEvent(body []byte) (model.Event, error) {
 			slog.Info("unsupported inner event type", "type", ev)
 			return nil, nil
 		}
+	case slackevents.URLVerification:
+		var r *slackevents.ChallengeResponse
+		if err := json.Unmarshal(body, &r); err != nil {
+			slog.Error("failed to parse challenge", "error", err)
+			return nil, err
+		}
+		return model.NewURLVerificationEvent(r.Challenge), nil
 	default:
 		slog.Info("unsupported event type", "type", eventsAPIEvent.Type)
 		return nil, nil
 	}
 }
 
+func (c *Client) ParseInteraction(body []byte) (model.Event, error) {
+	payloadStr := string(body)
+	if len(payloadStr) <= 8 || payloadStr[:8] != "payload=" {
+		return nil, nil
+	}
+	// URL decode and remove "payload=" prefix
+	decoded, err := url.QueryUnescape(payloadStr[8:])
+	if err != nil {
+		slog.Error("failed to unescape payload", "error", err)
+		return nil, err
+	}
+	var interaction slack.InteractionCallback
+	if err := json.Unmarshal([]byte(decoded), &interaction); err != nil {
+		slog.Error("failed to parse interaction", "error", err)
+		return nil, err
+	}
+	if len(interaction.ActionCallback.AttachmentActions) == 0 {
+		return nil, nil
+	}
+	action := interaction.ActionCallback.AttachmentActions[0]
+	var value string
+	if action.Name == "random_reviewer" {
+		value = "" // Empty value indicates random selection
+	} else if action.Name == "select_reviewer" && len(action.SelectedOptions) > 0 {
+		value = action.SelectedOptions[0].Value
+	}
+	return model.NewInteractiveMessageEvent(interaction.Channel.ID, action.Name, value), nil
+}
+
 func (c *Client) PostMessage(message *model.Message) error {
+	var options []slack.MsgOption
+	options = append(options, slack.MsgOptionText(message.Text, false))
+
+	if len(message.Attachments) > 0 {
+		var attachments []slack.Attachment
+		for _, a := range message.Attachments {
+			var actions []slack.AttachmentAction
+			for _, act := range a.Actions {
+				action := slack.AttachmentAction{
+					Name:  act.Name,
+					Text:  act.Text,
+					Type:  slack.ActionType(act.Type),
+					Value: act.Value,
+				}
+				if len(act.Options) > 0 {
+					options := make([]slack.AttachmentActionOption, len(act.Options))
+					for i, opt := range act.Options {
+						options[i] = slack.AttachmentActionOption{
+							Text:  opt.Text,
+							Value: opt.Value,
+						}
+					}
+					action.Options = options
+				}
+				actions = append(actions, action)
+			}
+			attachment := slack.Attachment{
+				Text:       a.Text,
+				CallbackID: a.CallbackID,
+				Actions:    actions,
+			}
+			attachments = append(attachments, attachment)
+		}
+		options = append(options, slack.MsgOptionAttachments(attachments...))
+	}
+
 	_, _, err := c.api.PostMessage(
 		message.ChannelID,
-		slack.MsgOptionText(message.Text, false),
+		options...,
 	)
 	if err != nil {
 		slog.Error("failed to post message", "error", err)

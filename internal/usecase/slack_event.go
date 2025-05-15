@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"encoding/json"
 	"log/slog"
 	"net/http"
 
@@ -9,20 +10,76 @@ import (
 
 // HandleAppMention handles app mention events
 func (u *SlackUsecaseImpl) HandleAppMention(event *model.AppMentionEvent) *model.HTTPResponse {
-	// Get random reviewer from configured list
-	reviewer, ok := u.reviewerIDs.GetRandomReviewer()
-	if !ok {
-		slog.Error("no reviewer IDs configured")
-		return model.NewStatusResponse(http.StatusInternalServerError)
-	}
-	messageText := "<@" + reviewer + "> このメッセージをレビューし、完了したら :white_check_mark: のリアクションをつけてください"
-	message := model.NewMessage(event.ChannelID, messageText)
+	messageText := "レビュワーを選択してください"
+	message := model.NewReviewerSelectionMessage(event.ChannelID, messageText, u.reviewerMap)
 	// Post the message to Slack
 	if err := u.slackRepo.PostMessage(message); err != nil {
 		slog.Error("failed to post message", "error", err)
 		return model.NewStatusResponse(http.StatusInternalServerError)
 	}
 	return model.NewStatusResponse(http.StatusOK)
+}
+
+// HandleInteractiveMessage handles interactive message events
+func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMessageEvent) *model.HTTPResponse {
+	var reviewerID string
+	switch event.ActionID {
+	case "random_reviewer":
+		// Get random reviewer from configured map
+		reviewer, ok := u.reviewerMap.GetRandomReviewer()
+		if !ok {
+			slog.Error("no reviewers configured")
+			return model.NewStatusResponse(http.StatusInternalServerError)
+		}
+		reviewerID = reviewer.MemberID
+	case "select_reviewer":
+		reviewerID = event.Value
+	case "reject_reviewer":
+		// Get current reviewer ID from Value field
+		currentReviewerID := event.Value
+		// Create a map of candidate reviewers excluding the current reviewer
+		candidateReviewers := make(model.ReviewerMap)
+		for name, id := range u.reviewerMap {
+			if id != currentReviewerID {
+				candidateReviewers[name] = id
+			}
+		}
+		// Get random reviewer from the candidate reviewers
+		reviewer, ok := candidateReviewers.GetRandomReviewer()
+		if !ok {
+			slog.Error("no other reviewers available")
+			return model.NewStatusResponse(http.StatusInternalServerError)
+		}
+		reviewerID = reviewer.MemberID
+	default:
+		slog.Error("unknown action ID", "action_id", event.ActionID)
+		return model.NewStatusResponse(http.StatusBadRequest)
+	}
+	messageText := "このメッセージをレビューし、完了したら :white_check_mark: のリアクションをつけてください。\nメッセージ内のリンクは *シークレットウィンドウ* で開いて確認するようにしてください。"
+	fields := []model.AttachmentField{
+		{
+			Title: "レビュワー",
+			Value: "<@" + reviewerID + ">",
+			Short: false,
+		},
+	}
+	// Create Reject button action
+	actions := []model.Action{
+		{
+			Name:  "reject_reviewer",
+			Text:  "Reject",
+			Type:  "button",
+			Value: reviewerID,
+		},
+	}
+	message := model.NewUpdateMessage(event.ChannelID, messageText, fields, actions)
+	// Encode response as JSON
+	responseJSON, err := json.Marshal(message)
+	if err != nil {
+		slog.Error("failed to marshal response", "error", err)
+		return model.NewStatusResponse(http.StatusInternalServerError)
+	}
+	return model.NewJSONResponse(http.StatusOK, responseJSON)
 }
 
 // HandleURLVerification handles URL verification events

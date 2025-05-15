@@ -18,8 +18,8 @@ func provideSigningSecret(cfg *config.SlackConfig) model.SigningSecret {
 	return cfg.SigningSecret
 }
 
-func provideReviewerIDs(cfg *config.SlackConfig) model.ReviewerIDs {
-	return cfg.ReviewerIDs
+func provideReviewerMap(cfg *config.SlackConfig) model.ReviewerMap {
+	return cfg.ReviewerMap
 }
 
 func initializeApp() *app {
@@ -28,7 +28,7 @@ func initializeApp() *app {
 		rest.Set,
 		provideOAuthToken,
 		provideSigningSecret,
-		provideReviewerIDs,
+		provideReviewerMap,
 		newApp,
 	)
 	return &app{}

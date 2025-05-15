@@ -22,8 +22,8 @@ func initializeApp() *app {
 	oAuthToken := provideOAuthToken(slackConfig)
 	signingSecret := provideSigningSecret(slackConfig)
 	client := infrastructure.NewClient(oAuthToken, signingSecret)
-	reviewerIDs := provideReviewerIDs(slackConfig)
-	slackUsecaseImpl := usecase.NewSlackUsecase(client, reviewerIDs)
+	reviewerMap := provideReviewerMap(slackConfig)
+	slackUsecaseImpl := usecase.NewSlackUsecase(client, reviewerMap)
 	controllerController := controller.NewController(slackUsecaseImpl)
 	server := rest.NewServer(controllerController)
 	mainApp := newApp(server)
@@ -40,6 +40,6 @@ func provideSigningSecret(cfg *config.SlackConfig) model.SigningSecret {
 	return cfg.SigningSecret
 }
 
-func provideReviewerIDs(cfg *config.SlackConfig) model.ReviewerIDs {
-	return cfg.ReviewerIDs
+func provideReviewerMap(cfg *config.SlackConfig) model.ReviewerMap {
+	return cfg.ReviewerMap
 }

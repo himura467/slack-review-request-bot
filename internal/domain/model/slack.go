@@ -8,27 +8,132 @@ type OAuthToken string
 // SigningSecret represents a Slack signing secret
 type SigningSecret string
 
-// ReviewerIDs represents a list of Slack user IDs that can be assigned as reviewers
-type ReviewerIDs []string
+// ReviewerMap represents a mapping of display names to Slack member IDs for reviewers
+type ReviewerMap map[string]string
 
-// GetRandomReviewer returns a random reviewer ID from the list
-func (r ReviewerIDs) GetRandomReviewer() (string, bool) {
+// ReviewerInfo contains both the display name and member ID of a reviewer
+type ReviewerInfo struct {
+	DisplayName string
+	MemberID    string
+}
+
+// GetRandomReviewer returns a random reviewer with both display name and member ID from the map
+func (r ReviewerMap) GetRandomReviewer() (ReviewerInfo, bool) {
 	if len(r) == 0 {
-		return "", false
+		return ReviewerInfo{}, false
 	}
-	return r[rand.Intn(len(r))], true
+	// Get all display names as slice
+	displayNames := make([]string, 0, len(r))
+	for name := range r {
+		displayNames = append(displayNames, name)
+	}
+	// Select random display name
+	selectedName := displayNames[rand.Intn(len(displayNames))]
+	return ReviewerInfo{
+		DisplayName: selectedName,
+		MemberID:    r[selectedName],
+	}, true
+}
+
+// Action represents a Slack message action
+type Action struct {
+	Name    string `json:"name"`
+	Text    string `json:"text"`
+	Type    string `json:"type"`
+	Value   string `json:"value,omitempty"`
+	Options []struct {
+		Text  string `json:"text"`
+		Value string `json:"value"`
+	} `json:"options,omitempty"`
+}
+
+// AttachmentField represents a field in a Slack message attachment
+type AttachmentField struct {
+	Title string `json:"title"`
+	Value string `json:"value,omitempty"`
+	Short bool   `json:"short,omitempty"`
+}
+
+// Attachment represents a Slack message attachment
+type Attachment struct {
+	Text       string            `json:"text,omitempty"`
+	Color      string            `json:"color,omitempty"`
+	CallbackID string            `json:"callback_id,omitempty"`
+	Actions    []Action          `json:"actions,omitempty"`
+	Fields     []AttachmentField `json:"fields,omitempty"`
 }
 
 // Message represents a Slack message
 type Message struct {
-	ChannelID string
-	Text      string
+	ChannelID       string       `json:"channel"`
+	Text            string       `json:"text,omitempty"`
+	Attachments     []Attachment `json:"attachments,omitempty"`
+	ReplaceOriginal bool         `json:"replace_original,omitempty"`
 }
 
+// NewMessage creates a new Slack message
 func NewMessage(channelID, text string) *Message {
 	return &Message{
 		ChannelID: channelID,
 		Text:      text,
+	}
+}
+
+// NewReviewerSelectionMessage creates a message with reviewer selection components using Slack Attachments
+func NewReviewerSelectionMessage(channelID string, text string, reviewerMap ReviewerMap) *Message {
+	// Create options for the select menu
+	options := make([]struct {
+		Text  string `json:"text"`
+		Value string `json:"value"`
+	}, 0, len(reviewerMap))
+	for displayName, memberID := range reviewerMap {
+		options = append(options, struct {
+			Text  string `json:"text"`
+			Value string `json:"value"`
+		}{
+			Text:  displayName,
+			Value: memberID,
+		})
+	}
+
+	return &Message{
+		ChannelID: channelID,
+		Attachments: []Attachment{
+			{
+				Text:       text,
+				CallbackID: "reviewer_selection",
+				Actions: []Action{
+					{
+						Name:  "random_reviewer",
+						Text:  "Random",
+						Type:  "button",
+						Value: "",
+					},
+					{
+						Name:    "select_reviewer",
+						Text:    "レビュワーを選択",
+						Type:    "select",
+						Options: options,
+					},
+				},
+			},
+		},
+	}
+}
+
+// NewUpdateMessage creates a message that updates the original message
+func NewUpdateMessage(channelID, text string, fields []AttachmentField, actions []Action) *Message {
+	return &Message{
+		ChannelID:       channelID,
+		Text:            text,
+		ReplaceOriginal: true,
+		Attachments: []Attachment{
+			{
+				Color:   "#F4631E",
+				Fields:  fields,
+				Actions: actions,
+			},
+		},
 	}
 }
 
@@ -40,6 +145,7 @@ type Event interface {
 // EventHandler defines the interface for handling different types of events
 type EventHandler interface {
 	HandleAppMention(event *AppMentionEvent) *HTTPResponse
+	HandleInteractiveMessage(event *InteractiveMessageEvent) *HTTPResponse
 	HandleURLVerification(event *URLVerificationEvent) *HTTPResponse
 }
 
@@ -56,6 +162,25 @@ func NewAppMentionEvent(channelID string) *AppMentionEvent {
 
 func (e *AppMentionEvent) Handle(handler EventHandler) *HTTPResponse {
 	return handler.HandleAppMention(e)
+}
+
+// InteractiveMessageEvent represents a Slack interactive message event
+type InteractiveMessageEvent struct {
+	ChannelID string
+	ActionID  string
+	Value     string
+}
+
+func NewInteractiveMessageEvent(channelID, actionID, value string) *InteractiveMessageEvent {
+	return &InteractiveMessageEvent{
+		ChannelID: channelID,
+		ActionID:  actionID,
+		Value:     value,
+	}
+}
+
+func (e *InteractiveMessageEvent) Handle(handler EventHandler) *HTTPResponse {
+	return handler.HandleInteractiveMessage(e)
 }
 
 // URLVerificationEvent represents a Slack URL verification event
