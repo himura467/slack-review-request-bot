@@ -122,15 +122,16 @@ func NewReviewerSelectionMessage(channelID string, text string, reviewerMap Revi
 }
 
 // NewUpdateMessage creates a message that updates the original message
-func NewUpdateMessage(channelID, text string, fields []AttachmentField) *Message {
+func NewUpdateMessage(channelID, text string, fields []AttachmentField, actions []Action) *Message {
 	return &Message{
 		ChannelID:       channelID,
 		Text:            text,
 		ReplaceOriginal: true,
 		Attachments: []Attachment{
 			{
-				Color:  "#F4631E",
-				Fields: fields,
+				Color:   "#F4631E",
+				Fields:  fields,
+				Actions: actions,
 			},
 		},
 	}

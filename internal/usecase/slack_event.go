@@ -34,6 +34,23 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 		reviewerID = reviewer.MemberID
 	case "select_reviewer":
 		reviewerID = event.Value
+	case "reject_reviewer":
+		// Get current reviewer ID from Value field
+		currentReviewerID := event.Value
+		// Create a map of candidate reviewers excluding the current reviewer
+		candidateReviewers := make(model.ReviewerMap)
+		for name, id := range u.reviewerMap {
+			if id != currentReviewerID {
+				candidateReviewers[name] = id
+			}
+		}
+		// Get random reviewer from the candidate reviewers
+		reviewer, ok := candidateReviewers.GetRandomReviewer()
+		if !ok {
+			slog.Error("no other reviewers available")
+			return model.NewStatusResponse(http.StatusInternalServerError)
+		}
+		reviewerID = reviewer.MemberID
 	default:
 		slog.Error("unknown action ID", "action_id", event.ActionID)
 		return model.NewStatusResponse(http.StatusBadRequest)
@@ -46,7 +63,16 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 			Short: false,
 		},
 	}
-	message := model.NewUpdateMessage(event.ChannelID, messageText, fields)
+	// Create Reject button action
+	actions := []model.Action{
+		{
+			Name:  "reject_reviewer",
+			Text:  "Reject",
+			Type:  "button",
+			Value: reviewerID,
+		},
+	}
+	message := model.NewUpdateMessage(event.ChannelID, messageText, fields, actions)
 	// Encode response as JSON
 	responseJSON, err := json.Marshal(message)
 	if err != nil {
