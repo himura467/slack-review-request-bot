@@ -86,13 +86,13 @@ func NewReviewerSelectionMessage(channelID string, text string, reviewerMap Revi
 		Text  string `json:"text"`
 		Value string `json:"value"`
 	}, 0, len(reviewerMap))
-	for displayName, memberID := range reviewerMap {
+	for displayName := range reviewerMap {
 		options = append(options, struct {
 			Text  string `json:"text"`
 			Value string `json:"value"`
 		}{
 			Text:  displayName,
-			Value: memberID,
+			Value: displayName,
 		})
 	}
 

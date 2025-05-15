@@ -22,7 +22,7 @@ func (u *SlackUsecaseImpl) HandleAppMention(event *model.AppMentionEvent) *model
 
 // HandleInteractiveMessage handles interactive message events
 func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMessageEvent) *model.HTTPResponse {
-	var reviewerID string
+	var reviewerName string
 	switch event.ActionID {
 	case "random_reviewer":
 		// Get random reviewer from configured map
@@ -31,16 +31,16 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 			slog.Error("no reviewers configured")
 			return model.NewStatusResponse(http.StatusInternalServerError)
 		}
-		reviewerID = reviewer.MemberID
+		reviewerName = reviewer.DisplayName
 	case "select_reviewer":
-		reviewerID = event.Value
+		reviewerName = event.Value
 	case "reject_reviewer":
-		// Get current reviewer ID from Value field
-		currentReviewerID := event.Value
+		// Get current reviewer name from Value field
+		currentReviewerName := event.Value
 		// Create a map of candidate reviewers excluding the current reviewer
 		candidateReviewers := make(model.ReviewerMap)
 		for name, id := range u.reviewerMap {
-			if id != currentReviewerID {
+			if name != currentReviewerName {
 				candidateReviewers[name] = id
 			}
 		}
@@ -50,16 +50,18 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 			slog.Error("no other reviewers available")
 			return model.NewStatusResponse(http.StatusInternalServerError)
 		}
-		reviewerID = reviewer.MemberID
+		reviewerName = reviewer.DisplayName
 	default:
 		slog.Error("unknown action ID", "action_id", event.ActionID)
 		return model.NewStatusResponse(http.StatusBadRequest)
 	}
-	messageText := "このメッセージをレビューし、完了したら :white_check_mark: のリアクションをつけてください。\nメッセージ内のリンクは *シークレットウィンドウ* で開いて確認するようにしてください。"
+	// Get reviewer ID for the mention
+	reviewerID := u.reviewerMap[reviewerName]
+	messageText := "<@" + reviewerID + "> このメッセージをレビューし、完了したら :white_check_mark: のリアクションをつけてください。\nメッセージ内のリンクは *シークレットウィンドウ* で開いて確認するようにしてください。"
 	fields := []model.AttachmentField{
 		{
 			Title: "レビュワー",
-			Value: "<@" + reviewerID + ">",
+			Value: reviewerName,
 			Short: false,
 		},
 	}
@@ -69,7 +71,7 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 			Name:  "reject_reviewer",
 			Text:  "Reject",
 			Type:  "button",
-			Value: reviewerID,
+			Value: reviewerName,
 		},
 	}
 	message := model.NewUpdateMessage(event.ChannelID, messageText, "reviewer_action", fields, actions)
