@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"log/slog"
+	"os"
 
 	"github.com/himura467/slack-review-request-bot/internal/domain/model"
 )
@@ -10,7 +11,6 @@ import (
 var (
 	OAuthToken    = ""
 	SigningSecret = ""
-	ReviewerMap   = ""
 )
 
 type SlackConfig struct {
@@ -24,7 +24,11 @@ func NewSlackConfig() *SlackConfig {
 	secret := SigningSecret
 	reviewerMap := make(model.ReviewerMap)
 
-	if err := json.Unmarshal([]byte(ReviewerMap), &reviewerMap); err != nil {
+	reviewerMapBytes, err := os.ReadFile("reviewer_map.json")
+	if err != nil {
+		slog.Error("failed to read reviewer map file", "error", err)
+	}
+	if err := json.Unmarshal(reviewerMapBytes, &reviewerMap); err != nil {
 		slog.Error("failed to parse reviewer map config", "error", err)
 	}
 
