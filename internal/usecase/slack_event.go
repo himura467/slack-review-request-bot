@@ -72,7 +72,7 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 		reviewerName = reviewer.DisplayName
 	case "select_reviewer":
 		reviewerName = event.Value
-	case "reject_reviewer":
+	case "reassign_reviewer":
 		// Get current reviewer name from Value field
 		currentReviewerName := event.Value
 		// Create a map of candidate reviewers excluding the current reviewer
@@ -103,11 +103,11 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 			Short: false,
 		},
 	}
-	// Create Reject button action
+	// Create Reassign button action
 	actions := []model.Action{
 		{
-			Name:  "reject_reviewer",
-			Text:  "Reject",
+			Name:  "reassign_reviewer",
+			Text:  "Reassign",
 			Type:  "button",
 			Value: reviewerName,
 		},
