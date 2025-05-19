@@ -1,4 +1,4 @@
-FROM golang:1.24.2-bookworm AS builder
+FROM golang:1.24.2-bookworm AS build
 
 ARG SLACK_OAUTH_TOKEN
 ARG SLACK_SIGNING_SECRET
@@ -16,7 +16,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 go build \
 
 FROM gcr.io/distroless/static-debian12 AS slack-events-api
 
-COPY --from=builder /go/bin/slack-events-api /app
-COPY --from=builder /go/src/app/reviewer_map.json /
+COPY --from=build /go/bin/slack-events-api /app
+COPY --from=build /go/src/app/reviewer_map.json /
 
 CMD ["/app"]
