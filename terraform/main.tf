@@ -4,14 +4,12 @@ locals {
 
 terraform {
   required_version = "1.10.2"
-
   required_providers {
     google = {
       source  = "hashicorp/google"
       version = "6.31.1"
     }
   }
-
   backend "s3" {
     profile      = "himura"
     bucket       = "slack-review-request-bot-terraform-state"
@@ -57,7 +55,6 @@ resource "google_project_service" "artifact_registry_api" {
 
 resource "terraform_data" "docker_push" {
   triggers_replace = [timestamp()]
-
   provisioner "local-exec" {
     command = <<EOF
       echo "Logging in to Artifact Registry..."
@@ -70,7 +67,6 @@ resource "terraform_data" "docker_push" {
       docker push ${var.google_region}-docker.pkg.dev/${var.google_project_id}/${local.app_name}/${local.app_name}:latest
     EOF
   }
-
   depends_on = [
     google_artifact_registry_repository.slack_review_request_bot_repo,
     google_project_service.artifact_registry_api,
@@ -91,7 +87,6 @@ resource "google_cloud_run_v2_service" "slack_review_request_bot" {
   name                = local.app_name
   location            = var.google_region
   deletion_protection = false
-
   template {
     containers {
       image = "${var.google_region}-docker.pkg.dev/${var.google_project_id}/${local.app_name}/${local.app_name}:latest"
@@ -101,7 +96,6 @@ resource "google_cloud_run_v2_service" "slack_review_request_bot" {
       max_instance_count = 1
     }
   }
-
   depends_on = [
     google_project_service.cloud_run_admin_api,
     time_sleep.wait_for_push,
