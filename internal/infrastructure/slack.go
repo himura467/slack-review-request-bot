@@ -99,7 +99,7 @@ func (c *Client) ParseInteraction(body []byte) (model.Event, error) {
 	}
 	action := interaction.ActionCallback.AttachmentActions[0]
 	var value string
-	if action.Name == "random_reviewer" {
+	if action.Name == "random_reviewer" || action.Name == "urgent_reviewer" {
 		value = "" // Empty value indicates random selection
 	} else if action.Name == "select_reviewer" && len(action.SelectedOptions) > 0 {
 		value = action.SelectedOptions[0].Value
@@ -191,4 +191,32 @@ func (c *Client) DeleteMessage(channelID, timestamp string) error {
 	}
 	slog.Info("message deleted successfully", "channel", channelID)
 	return nil
+}
+
+func (c *Client) GetOnlineMembers() ([]string, error) {
+	users, err := c.api.GetUsers()
+	if err != nil {
+		slog.Error("failed to get users", "error", err)
+		return nil, err
+	}
+
+	var onlineMembers []string
+	for _, user := range users {
+		// Skip bots and deleted users
+		if user.IsBot || user.Deleted {
+			continue
+		}
+		// Get user presence
+		presence, err := c.api.GetUserPresence(user.ID)
+		if err != nil {
+			slog.Warn("failed to get user presence", "user_id", user.ID, "error", err)
+			continue
+		}
+		// Check if user is active/online
+		if presence.Presence == "active" {
+			onlineMembers = append(onlineMembers, user.ID)
+		}
+	}
+	slog.Info("found online members", "count", len(onlineMembers))
+	return onlineMembers, nil
 }

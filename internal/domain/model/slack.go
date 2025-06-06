@@ -35,6 +35,31 @@ func (r ReviewerMap) GetRandomReviewer() (ReviewerInfo, bool) {
 	}, true
 }
 
+// GetRandomOnlineReviewer returns a random online reviewer from the map
+func (r ReviewerMap) GetRandomOnlineReviewer(onlineMembers []string) (ReviewerInfo, bool) {
+	// Create a set of online member IDs for efficient lookup
+	onlineMemberSet := make(map[string]bool)
+	for _, memberID := range onlineMembers {
+		onlineMemberSet[memberID] = true
+	}
+	// Get online reviewers
+	var onlineReviewers []ReviewerInfo
+	for displayName, memberID := range r {
+		if onlineMemberSet[memberID] {
+			onlineReviewers = append(onlineReviewers, ReviewerInfo{
+				DisplayName: displayName,
+				MemberID:    memberID,
+			})
+		}
+	}
+	if len(onlineReviewers) == 0 {
+		return ReviewerInfo{}, false
+	}
+	// Select random online reviewer
+	selectedReviewer := onlineReviewers[rand.Intn(len(onlineReviewers))]
+	return selectedReviewer, true
+}
+
 // Action represents a Slack message action
 type Action struct {
 	Name    string `json:"name"`

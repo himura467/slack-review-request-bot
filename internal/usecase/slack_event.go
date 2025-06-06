@@ -38,6 +38,12 @@ func (u *SlackUsecaseImpl) HandleAppMention(event *model.AppMentionEvent) *model
 						Value: "",
 					},
 					{
+						Name:  "urgent_reviewer",
+						Text:  "Urgent",
+						Type:  "button",
+						Value: "",
+					},
+					{
 						Name:    "select_reviewer",
 						Text:    "レビュワーを選択",
 						Type:    "select",
@@ -67,6 +73,25 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 		if !ok {
 			slog.Error("no reviewers configured")
 			return model.NewStatusResponse(http.StatusInternalServerError)
+		}
+		reviewerName = reviewer.DisplayName
+	case "urgent_reviewer":
+		// Get online members first
+		onlineMembers, err := u.slackRepo.GetOnlineMembers()
+		if err != nil {
+			slog.Error("failed to get online members", "error", err)
+			return model.NewStatusResponse(http.StatusInternalServerError)
+		}
+		// Get random online reviewer from configured map
+		reviewer, ok := u.reviewerMap.GetRandomOnlineReviewer(onlineMembers)
+		if !ok {
+			slog.Warn("no online reviewers available, falling back to random reviewer")
+			// Fallback to random reviewer if no online reviewers are available
+			reviewer, ok = u.reviewerMap.GetRandomReviewer()
+			if !ok {
+				slog.Error("no reviewers configured")
+				return model.NewStatusResponse(http.StatusInternalServerError)
+			}
 		}
 		reviewerName = reviewer.DisplayName
 	case "select_reviewer":
