@@ -8,31 +8,57 @@ type OAuthToken string
 // SigningSecret represents a Slack signing secret
 type SigningSecret string
 
-// ReviewerMap represents a mapping of display names to Slack member IDs for reviewers
-type ReviewerMap map[string]string
+// MemberID represents a Slack member ID
+type MemberID string
 
-// ReviewerInfo contains both the display name and member ID of a reviewer
-type ReviewerInfo struct {
+// ReviewerMap represents a mapping of display names to Slack member IDs for reviewers
+type ReviewerMap map[string]MemberID
+
+// Member contains both the display name and member ID of a Slack member
+type Member struct {
 	DisplayName string
-	MemberID    string
+	MemberID    MemberID
 }
 
-// GetRandomReviewer returns a random reviewer with both display name and member ID from the map
-func (r ReviewerMap) GetRandomReviewer() (ReviewerInfo, bool) {
+// GetRandomReviewerFrom returns a random reviewer from the specified set of member IDs.
+// If memberIDs is nil or empty, it selects from all reviewers in the map.
+// If memberIDs is provided, it filters to only those member IDs and selects randomly.
+func (r ReviewerMap) GetRandomReviewerFrom(memberIDs []MemberID) (Member, bool) {
 	if len(r) == 0 {
-		return ReviewerInfo{}, false
+		return Member{}, false
 	}
-	// Get all display names as slice
-	displayNames := make([]string, 0, len(r))
-	for name := range r {
-		displayNames = append(displayNames, name)
+
+	var candidates []Member
+	if len(memberIDs) == 0 {
+		// No filter specified, use all reviewers
+		for displayName, memberID := range r {
+			candidates = append(candidates, Member{
+				DisplayName: displayName,
+				MemberID:    memberID,
+			})
+		}
+	} else {
+		// Create a set of target member IDs for efficient lookup
+		targetMemberSet := make(map[MemberID]bool)
+		for _, memberID := range memberIDs {
+			targetMemberSet[memberID] = true
+		}
+		// Filter reviewers by the specified member IDs
+		for displayName, memberID := range r {
+			if targetMemberSet[memberID] {
+				candidates = append(candidates, Member{
+					DisplayName: displayName,
+					MemberID:    memberID,
+				})
+			}
+		}
 	}
-	// Select random display name
-	selectedName := displayNames[rand.Intn(len(displayNames))]
-	return ReviewerInfo{
-		DisplayName: selectedName,
-		MemberID:    r[selectedName],
-	}, true
+	if len(candidates) == 0 {
+		return Member{}, false
+	}
+	// Select random candidate
+	selectedReviewer := candidates[rand.Intn(len(candidates))]
+	return selectedReviewer, true
 }
 
 // Action represents a Slack message action
