@@ -69,7 +69,7 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 	switch event.ActionID {
 	case "random_reviewer":
 		// Get random reviewer from configured map
-		reviewer, ok := u.reviewerMap.GetRandomReviewer()
+		reviewer, ok := u.reviewerMap.GetRandomReviewerFrom(nil)
 		if !ok {
 			slog.Error("no reviewers configured")
 			return model.NewStatusResponse(http.StatusInternalServerError)
@@ -83,15 +83,10 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 			return model.NewStatusResponse(http.StatusInternalServerError)
 		}
 		// Get random online reviewer from configured map
-		reviewer, ok := u.reviewerMap.GetRandomOnlineReviewer(onlineMemberIDs)
+		reviewer, ok := u.reviewerMap.GetRandomReviewerFrom(onlineMemberIDs)
 		if !ok {
-			slog.Warn("no online reviewers available, falling back to random reviewer")
-			// Fallback to random reviewer if no online reviewers are available
-			reviewer, ok = u.reviewerMap.GetRandomReviewer()
-			if !ok {
-				slog.Error("no reviewers configured")
-				return model.NewStatusResponse(http.StatusInternalServerError)
-			}
+			slog.Error("no reviewers configured")
+			return model.NewStatusResponse(http.StatusInternalServerError)
 		}
 		reviewerName = reviewer.DisplayName
 	case "select_reviewer":
@@ -107,7 +102,7 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 			}
 		}
 		// Get random reviewer from the candidate reviewers
-		reviewer, ok := candidateReviewers.GetRandomReviewer()
+		reviewer, ok := candidateReviewers.GetRandomReviewerFrom(nil)
 		if !ok {
 			slog.Error("no other reviewers available")
 			return model.NewStatusResponse(http.StatusInternalServerError)
