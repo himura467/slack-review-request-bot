@@ -38,6 +38,12 @@ func (u *SlackUsecaseImpl) HandleAppMention(event *model.AppMentionEvent) *model
 						Value: "",
 					},
 					{
+						Name:  "urgent_reviewer",
+						Text:  "Urgent",
+						Type:  "button",
+						Value: "",
+					},
+					{
 						Name:    "select_reviewer",
 						Text:    "レビュワーを選択",
 						Type:    "select",
@@ -63,7 +69,21 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 	switch event.ActionID {
 	case "random_reviewer":
 		// Get random reviewer from configured map
-		reviewer, ok := u.reviewerMap.GetRandomReviewer()
+		reviewer, ok := u.reviewerMap.GetRandomReviewerFrom(nil)
+		if !ok {
+			slog.Error("no reviewers configured")
+			return model.NewStatusResponse(http.StatusInternalServerError)
+		}
+		reviewerName = reviewer.DisplayName
+	case "urgent_reviewer":
+		// Get online member IDs first
+		onlineMemberIDs, err := u.slackRepo.GetOnlineMemberIDs()
+		if err != nil {
+			slog.Error("failed to get online member IDs", "error", err)
+			return model.NewStatusResponse(http.StatusInternalServerError)
+		}
+		// Get random online reviewer from configured map
+		reviewer, ok := u.reviewerMap.GetRandomReviewerFrom(onlineMemberIDs)
 		if !ok {
 			slog.Error("no reviewers configured")
 			return model.NewStatusResponse(http.StatusInternalServerError)
@@ -82,7 +102,7 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 			}
 		}
 		// Get random reviewer from the candidate reviewers
-		reviewer, ok := candidateReviewers.GetRandomReviewer()
+		reviewer, ok := candidateReviewers.GetRandomReviewerFrom(nil)
 		if !ok {
 			slog.Error("no other reviewers available")
 			return model.NewStatusResponse(http.StatusInternalServerError)
@@ -94,7 +114,7 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 	}
 	// Get reviewer ID for the mention
 	reviewerID := u.reviewerMap[reviewerName]
-	messageText := "<@" + reviewerID + "> このメッセージをレビューし、完了したら :white_check_mark: のリアクションをつけてください。\nメッセージ内のリンクは *シークレットウィンドウ* で開いて確認するようにしてください。"
+	messageText := "<@" + string(reviewerID) + "> このメッセージをレビューし、完了したら :white_check_mark: のリアクションをつけてください。\nメッセージ内のリンクは *シークレットウィンドウ* で開いて確認するようにしてください。"
 	fields := []model.AttachmentField{
 		{
 			Title: "レビュワー",
