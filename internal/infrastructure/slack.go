@@ -193,30 +193,20 @@ func (c *Client) DeleteMessage(channelID, timestamp string) error {
 	return nil
 }
 
-func (c *Client) GetOnlineMemberIDs() ([]model.MemberID, error) {
-	users, err := c.api.GetUsers()
-	if err != nil {
-		slog.Error("failed to get users", "error", err)
-		return nil, err
-	}
-
+func (c *Client) FilterOnlineMemberIDs(memberIDs []model.MemberID) ([]model.MemberID, error) {
 	var onlineMemberIDs []model.MemberID
-	for _, user := range users {
-		// Skip bots and deleted users
-		if user.IsBot || user.Deleted {
-			continue
-		}
+	for _, memberID := range memberIDs {
 		// Get user presence
-		presence, err := c.api.GetUserPresence(user.ID)
+		presence, err := c.api.GetUserPresence(string(memberID))
 		if err != nil {
-			slog.Warn("failed to get user presence", "user_id", user.ID, "error", err)
+			slog.Warn("failed to get user presence", "user_id", memberID, "error", err)
 			continue
 		}
 		// Check if user is active/online
 		if presence.Presence == "active" {
-			onlineMemberIDs = append(onlineMemberIDs, model.MemberID(user.ID))
+			onlineMemberIDs = append(onlineMemberIDs, memberID)
 		}
 	}
-	slog.Info("found online members", "count", len(onlineMemberIDs))
+	slog.Info("found online members", "input_count", len(memberIDs), "online_count", len(onlineMemberIDs))
 	return onlineMemberIDs, nil
 }

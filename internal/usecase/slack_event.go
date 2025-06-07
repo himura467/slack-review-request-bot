@@ -79,10 +79,15 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 		reviewerID := u.reviewerMap[reviewerName]
 		messageText = "<@" + string(reviewerID) + ">\n【ランダム】\nこのメッセージをレビューし、完了したら :white_check_mark: のリアクションをつけてください。\nメッセージ内のリンクは *シークレットウィンドウ* で開いて確認するようにしてください。"
 	case "urgent_reviewer":
-		// Get online member IDs first
-		onlineMemberIDs, err := u.slackRepo.GetOnlineMemberIDs()
+		// Get all reviewer member IDs from the map
+		var allReviewerIDs []model.MemberID
+		for _, memberID := range u.reviewerMap {
+			allReviewerIDs = append(allReviewerIDs, memberID)
+		}
+		// Filter to get online member IDs from all reviewers
+		onlineMemberIDs, err := u.slackRepo.FilterOnlineMemberIDs(allReviewerIDs)
 		if err != nil {
-			slog.Error("failed to get online member IDs", "error", err)
+			slog.Error("failed to filter online member IDs", "error", err)
 			return model.NewStatusResponse(http.StatusInternalServerError)
 		}
 		// Get random online reviewer from configured map
