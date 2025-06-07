@@ -28,7 +28,7 @@ func (u *SlackUsecaseImpl) HandleAppMention(event *model.AppMentionEvent) *model
 		"レビュワーを選択してください",
 		[]model.Attachment{
 			{
-				Text:       "ランダム指定もできるよ",
+				Text:       "ランダムに指定したい場合は「Random」を、急ぎの場合は「Urgent」を選択してください",
 				CallbackID: "reviewer_selection",
 				Actions: []model.Action{
 					{
@@ -66,6 +66,7 @@ func (u *SlackUsecaseImpl) HandleAppMention(event *model.AppMentionEvent) *model
 // HandleInteractiveMessage handles interactive message events
 func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMessageEvent) *model.HTTPResponse {
 	var reviewerName string
+	var messageText string
 	switch event.ActionID {
 	case "random_reviewer":
 		// Get random reviewer from configured map
@@ -75,6 +76,8 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 			return model.NewStatusResponse(http.StatusInternalServerError)
 		}
 		reviewerName = reviewer.DisplayName
+		reviewerID := u.reviewerMap[reviewerName]
+		messageText = "<@" + string(reviewerID) + ">\n【ランダム】\nこのメッセージをレビューし、完了したら :white_check_mark: のリアクションをつけてください。\nメッセージ内のリンクは *シークレットウィンドウ* で開いて確認するようにしてください。"
 	case "urgent_reviewer":
 		// Get online member IDs first
 		onlineMemberIDs, err := u.slackRepo.GetOnlineMemberIDs()
@@ -89,8 +92,12 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 			return model.NewStatusResponse(http.StatusInternalServerError)
 		}
 		reviewerName = reviewer.DisplayName
+		reviewerID := u.reviewerMap[reviewerName]
+		messageText = "<@" + string(reviewerID) + ">\n【急ぎ】\nこのメッセージをレビューし、完了したら :white_check_mark: のリアクションをつけてください。\nメッセージ内のリンクは *シークレットウィンドウ* で開いて確認するようにしてください。"
 	case "select_reviewer":
 		reviewerName = event.Value
+		reviewerID := u.reviewerMap[reviewerName]
+		messageText = "<@" + string(reviewerID) + ">\n【選択】\nこのメッセージをレビューし、完了したら :white_check_mark: のリアクションをつけてください。\nメッセージ内のリンクは *シークレットウィンドウ* で開いて確認するようにしてください。"
 	case "reassign_reviewer":
 		// Get current reviewer name from Value field
 		currentReviewerName := event.Value
@@ -108,13 +115,12 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 			return model.NewStatusResponse(http.StatusInternalServerError)
 		}
 		reviewerName = reviewer.DisplayName
+		reviewerID := u.reviewerMap[reviewerName]
+		messageText = "<@" + string(reviewerID) + ">\n【ランダム】\nこのメッセージをレビューし、完了したら :white_check_mark: のリアクションをつけてください。\nメッセージ内のリンクは *シークレットウィンドウ* で開いて確認するようにしてください。"
 	default:
 		slog.Error("unknown action ID", "action_id", event.ActionID)
 		return model.NewStatusResponse(http.StatusBadRequest)
 	}
-	// Get reviewer ID for the mention
-	reviewerID := u.reviewerMap[reviewerName]
-	messageText := "<@" + string(reviewerID) + "> このメッセージをレビューし、完了したら :white_check_mark: のリアクションをつけてください。\nメッセージ内のリンクは *シークレットウィンドウ* で開いて確認するようにしてください。"
 	fields := []model.AttachmentField{
 		{
 			Title: "レビュワー",
