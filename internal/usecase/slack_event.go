@@ -76,14 +76,14 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 		}
 		reviewerName = reviewer.DisplayName
 	case "urgent_reviewer":
-		// Get online members first
-		onlineMembers, err := u.slackRepo.GetOnlineMembers()
+		// Get online member IDs first
+		onlineMemberIDs, err := u.slackRepo.GetOnlineMemberIDs()
 		if err != nil {
-			slog.Error("failed to get online members", "error", err)
+			slog.Error("failed to get online member IDs", "error", err)
 			return model.NewStatusResponse(http.StatusInternalServerError)
 		}
 		// Get random online reviewer from configured map
-		reviewer, ok := u.reviewerMap.GetRandomOnlineReviewer(onlineMembers)
+		reviewer, ok := u.reviewerMap.GetRandomOnlineReviewer(onlineMemberIDs)
 		if !ok {
 			slog.Warn("no online reviewers available, falling back to random reviewer")
 			// Fallback to random reviewer if no online reviewers are available
@@ -119,7 +119,7 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 	}
 	// Get reviewer ID for the mention
 	reviewerID := u.reviewerMap[reviewerName]
-	messageText := "<@" + reviewerID + "> このメッセージをレビューし、完了したら :white_check_mark: のリアクションをつけてください。\nメッセージ内のリンクは *シークレットウィンドウ* で開いて確認するようにしてください。"
+	messageText := "<@" + string(reviewerID) + "> このメッセージをレビューし、完了したら :white_check_mark: のリアクションをつけてください。\nメッセージ内のリンクは *シークレットウィンドウ* で開いて確認するようにしてください。"
 	fields := []model.AttachmentField{
 		{
 			Title: "レビュワー",

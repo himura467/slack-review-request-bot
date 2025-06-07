@@ -8,19 +8,22 @@ type OAuthToken string
 // SigningSecret represents a Slack signing secret
 type SigningSecret string
 
-// ReviewerMap represents a mapping of display names to Slack member IDs for reviewers
-type ReviewerMap map[string]string
+// MemberID represents a Slack member ID
+type MemberID string
 
-// ReviewerInfo contains both the display name and member ID of a reviewer
-type ReviewerInfo struct {
+// ReviewerMap represents a mapping of display names to Slack member IDs for reviewers
+type ReviewerMap map[string]MemberID
+
+// Member contains both the display name and member ID of a Slack member
+type Member struct {
 	DisplayName string
-	MemberID    string
+	MemberID    MemberID
 }
 
 // GetRandomReviewer returns a random reviewer with both display name and member ID from the map
-func (r ReviewerMap) GetRandomReviewer() (ReviewerInfo, bool) {
+func (r ReviewerMap) GetRandomReviewer() (Member, bool) {
 	if len(r) == 0 {
-		return ReviewerInfo{}, false
+		return Member{}, false
 	}
 	// Get all display names as slice
 	displayNames := make([]string, 0, len(r))
@@ -29,31 +32,31 @@ func (r ReviewerMap) GetRandomReviewer() (ReviewerInfo, bool) {
 	}
 	// Select random display name
 	selectedName := displayNames[rand.Intn(len(displayNames))]
-	return ReviewerInfo{
+	return Member{
 		DisplayName: selectedName,
 		MemberID:    r[selectedName],
 	}, true
 }
 
 // GetRandomOnlineReviewer returns a random online reviewer from the map
-func (r ReviewerMap) GetRandomOnlineReviewer(onlineMembers []string) (ReviewerInfo, bool) {
+func (r ReviewerMap) GetRandomOnlineReviewer(onlineMemberIDs []MemberID) (Member, bool) {
 	// Create a set of online member IDs for efficient lookup
-	onlineMemberSet := make(map[string]bool)
-	for _, memberID := range onlineMembers {
+	onlineMemberSet := make(map[MemberID]bool)
+	for _, memberID := range onlineMemberIDs {
 		onlineMemberSet[memberID] = true
 	}
 	// Get online reviewers
-	var onlineReviewers []ReviewerInfo
+	var onlineReviewers []Member
 	for displayName, memberID := range r {
 		if onlineMemberSet[memberID] {
-			onlineReviewers = append(onlineReviewers, ReviewerInfo{
+			onlineReviewers = append(onlineReviewers, Member{
 				DisplayName: displayName,
 				MemberID:    memberID,
 			})
 		}
 	}
 	if len(onlineReviewers) == 0 {
-		return ReviewerInfo{}, false
+		return Member{}, false
 	}
 	// Select random online reviewer
 	selectedReviewer := onlineReviewers[rand.Intn(len(onlineReviewers))]
