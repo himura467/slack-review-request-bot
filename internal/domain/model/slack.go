@@ -8,31 +8,64 @@ type OAuthToken string
 // SigningSecret represents a Slack signing secret
 type SigningSecret string
 
-// ReviewerMap represents a mapping of display names to Slack member IDs for reviewers
-type ReviewerMap map[string]string
+// MemberID represents a Slack member ID
+type MemberID string
 
-// ReviewerInfo contains both the display name and member ID of a reviewer
-type ReviewerInfo struct {
+// ReviewerMap represents a mapping of display names to Slack member IDs for reviewers
+type ReviewerMap map[string]MemberID
+
+// Member contains both the display name and member ID of a Slack member
+type Member struct {
 	DisplayName string
-	MemberID    string
+	MemberID    MemberID
 }
 
-// GetRandomReviewer returns a random reviewer with both display name and member ID from the map
-func (r ReviewerMap) GetRandomReviewer() (ReviewerInfo, bool) {
+// GetRandomReviewer returns a random reviewer from the reviewer map.
+// If filterMemberIDs is provided, it filters to only those member IDs.
+// If excludeMemberIDs is provided, it excludes those member IDs from selection.
+// If both are provided, it first filters then excludes.
+func (r ReviewerMap) GetRandomReviewer(filterMemberIDs []MemberID, excludeMemberIDs []MemberID) (Member, bool) {
 	if len(r) == 0 {
-		return ReviewerInfo{}, false
+		return Member{}, false
 	}
-	// Get all display names as slice
-	displayNames := make([]string, 0, len(r))
-	for name := range r {
-		displayNames = append(displayNames, name)
+
+	// Create sets for efficient lookup
+	var filterSet map[MemberID]bool
+	if len(filterMemberIDs) > 0 {
+		filterSet = make(map[MemberID]bool)
+		for _, memberID := range filterMemberIDs {
+			filterSet[memberID] = true
+		}
 	}
-	// Select random display name
-	selectedName := displayNames[rand.Intn(len(displayNames))]
-	return ReviewerInfo{
-		DisplayName: selectedName,
-		MemberID:    r[selectedName],
-	}, true
+	var excludeSet map[MemberID]bool
+	if len(excludeMemberIDs) > 0 {
+		excludeSet = make(map[MemberID]bool)
+		for _, memberID := range excludeMemberIDs {
+			excludeSet[memberID] = true
+		}
+	}
+
+	var candidates []Member
+	for displayName, memberID := range r {
+		// Apply filter if specified
+		if filterSet != nil && !filterSet[memberID] {
+			continue
+		}
+		// Apply exclusion if specified
+		if excludeSet != nil && excludeSet[memberID] {
+			continue
+		}
+		candidates = append(candidates, Member{
+			DisplayName: displayName,
+			MemberID:    memberID,
+		})
+	}
+	if len(candidates) == 0 {
+		return Member{}, false
+	}
+	// Select random candidate
+	selectedReviewer := candidates[rand.Intn(len(candidates))]
+	return selectedReviewer, true
 }
 
 // Action represents a Slack message action
@@ -118,15 +151,17 @@ type InteractiveMessageEvent struct {
 	Value     string
 	MessageTS string
 	ThreadTS  string
+	MemberID  MemberID
 }
 
-func NewInteractiveMessageEvent(channelID, actionID, value, messageTS, threadTS string) *InteractiveMessageEvent {
+func NewInteractiveMessageEvent(channelID, actionID, value, messageTS, threadTS string, memberID MemberID) *InteractiveMessageEvent {
 	return &InteractiveMessageEvent{
 		ChannelID: channelID,
 		ActionID:  actionID,
 		Value:     value,
 		MessageTS: messageTS,
 		ThreadTS:  threadTS,
+		MemberID:  memberID,
 	}
 }
 

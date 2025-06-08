@@ -16,4 +16,6 @@ type SlackRepository interface {
 	PostMessage(message *model.Message) error
 	// DeleteMessage deletes a message from a Slack channel
 	DeleteMessage(channelID, timestamp string) error
+	// FilterOnlineMemberIDs returns a list of online member IDs from the specified member IDs
+	FilterOnlineMemberIDs(memberIDs []model.MemberID) ([]model.MemberID, error)
 }

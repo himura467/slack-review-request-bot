@@ -99,7 +99,7 @@ func (c *Client) ParseInteraction(body []byte) (model.Event, error) {
 	}
 	action := interaction.ActionCallback.AttachmentActions[0]
 	var value string
-	if action.Name == "random_reviewer" {
+	if action.Name == "random_reviewer" || action.Name == "urgent_reviewer" {
 		value = "" // Empty value indicates random selection
 	} else if action.Name == "select_reviewer" && len(action.SelectedOptions) > 0 {
 		value = action.SelectedOptions[0].Value
@@ -115,6 +115,7 @@ func (c *Client) ParseInteraction(body []byte) (model.Event, error) {
 		value,
 		interaction.MessageTs,
 		threadTS,
+		model.MemberID(interaction.User.ID),
 	), nil
 }
 
@@ -191,4 +192,22 @@ func (c *Client) DeleteMessage(channelID, timestamp string) error {
 	}
 	slog.Info("message deleted successfully", "channel", channelID)
 	return nil
+}
+
+func (c *Client) FilterOnlineMemberIDs(memberIDs []model.MemberID) ([]model.MemberID, error) {
+	var onlineMemberIDs []model.MemberID
+	for _, memberID := range memberIDs {
+		// Get user presence
+		presence, err := c.api.GetUserPresence(string(memberID))
+		if err != nil {
+			slog.Warn("failed to get user presence", "user_id", memberID, "error", err)
+			continue
+		}
+		// Check if user is active/online
+		if presence.Presence == "active" {
+			onlineMemberIDs = append(onlineMemberIDs, memberID)
+		}
+	}
+	slog.Info("found online members", "input_count", len(memberIDs), "online_count", len(onlineMemberIDs))
+	return onlineMemberIDs, nil
 }
