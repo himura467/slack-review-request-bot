@@ -1,6 +1,7 @@
 variable "google_project_id" {
   description = "The ID of the Google Cloud project"
   type        = string
+  default     = "slack-review-request-bot"
 }
 
 variable "google_region" {
@@ -12,4 +13,5 @@ variable "google_region" {
 variable "google_service_account_email" {
   description = "The email of the Google service account to use for authentication"
   type        = string
+  default     = "mitarashidango0927@gmail.com"
 }
