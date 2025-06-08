@@ -87,8 +87,8 @@ func (u *SlackUsecaseImpl) processInteractiveAction(event *model.InteractiveMess
 	var messageText string
 	switch event.ActionID {
 	case "random_reviewer":
-		// Get random reviewer from configured map
-		reviewer, ok := u.reviewerMap.GetRandomReviewerFrom(nil)
+		// Get random reviewer from configured map, excluding the requesting user
+		reviewer, ok := u.reviewerMap.GetRandomReviewer(nil, []model.MemberID{event.MemberID})
 		if !ok {
 			slog.Error("no reviewers configured")
 			u.sendReviewerSelectionMessage(event.ChannelID, event.ThreadTS)
@@ -110,8 +110,8 @@ func (u *SlackUsecaseImpl) processInteractiveAction(event *model.InteractiveMess
 			u.sendReviewerSelectionMessage(event.ChannelID, event.ThreadTS)
 			return
 		}
-		// Get random online reviewer from configured map
-		reviewer, ok := u.reviewerMap.GetRandomReviewerFrom(onlineMemberIDs)
+		// Get random online reviewer from configured map, excluding the requesting user
+		reviewer, ok := u.reviewerMap.GetRandomReviewer(onlineMemberIDs, []model.MemberID{event.MemberID})
 		if !ok {
 			slog.Error("no reviewers configured")
 			u.sendReviewerSelectionMessage(event.ChannelID, event.ThreadTS)
@@ -127,15 +127,11 @@ func (u *SlackUsecaseImpl) processInteractiveAction(event *model.InteractiveMess
 	case "reassign_reviewer":
 		// Get current reviewer name from Value field
 		currentReviewerName := event.Value
-		// Create a map of candidate reviewers excluding the current reviewer
-		candidateReviewers := make(model.ReviewerMap)
-		for name, id := range u.reviewerMap {
-			if name != currentReviewerName {
-				candidateReviewers[name] = id
-			}
-		}
-		// Get random reviewer from the candidate reviewers
-		reviewer, ok := candidateReviewers.GetRandomReviewerFrom(nil)
+		// Get current reviewer ID
+		currentReviewerID := u.reviewerMap[currentReviewerName]
+		// Get random reviewer excluding the current reviewer and the requesting user
+		excludeMembers := []model.MemberID{currentReviewerID, event.MemberID}
+		reviewer, ok := u.reviewerMap.GetRandomReviewer(nil, excludeMembers)
 		if !ok {
 			slog.Error("no other reviewers available")
 			u.sendReviewerSelectionMessage(event.ChannelID, event.ThreadTS)

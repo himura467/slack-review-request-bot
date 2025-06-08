@@ -115,6 +115,7 @@ func (c *Client) ParseInteraction(body []byte) (model.Event, error) {
 		value,
 		interaction.MessageTs,
 		threadTS,
+		model.MemberID(interaction.User.ID),
 	), nil
 }
 
