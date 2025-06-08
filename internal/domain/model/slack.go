@@ -20,38 +20,45 @@ type Member struct {
 	MemberID    MemberID
 }
 
-// GetRandomReviewerFrom returns a random reviewer from the specified set of member IDs.
-// If memberIDs is nil or empty, it selects from all reviewers in the map.
-// If memberIDs is provided, it filters to only those member IDs and selects randomly.
-func (r ReviewerMap) GetRandomReviewerFrom(memberIDs []MemberID) (Member, bool) {
+// GetRandomReviewer returns a random reviewer from the reviewer map.
+// If filterMemberIDs is provided, it filters to only those member IDs.
+// If excludeMemberIDs is provided, it excludes those member IDs from selection.
+// If both are provided, it first filters then excludes.
+func (r ReviewerMap) GetRandomReviewer(filterMemberIDs []MemberID, excludeMemberIDs []MemberID) (Member, bool) {
 	if len(r) == 0 {
 		return Member{}, false
 	}
 
+	// Create sets for efficient lookup
+	var filterSet map[MemberID]bool
+	if len(filterMemberIDs) > 0 {
+		filterSet = make(map[MemberID]bool)
+		for _, memberID := range filterMemberIDs {
+			filterSet[memberID] = true
+		}
+	}
+	var excludeSet map[MemberID]bool
+	if len(excludeMemberIDs) > 0 {
+		excludeSet = make(map[MemberID]bool)
+		for _, memberID := range excludeMemberIDs {
+			excludeSet[memberID] = true
+		}
+	}
+
 	var candidates []Member
-	if len(memberIDs) == 0 {
-		// No filter specified, use all reviewers
-		for displayName, memberID := range r {
-			candidates = append(candidates, Member{
-				DisplayName: displayName,
-				MemberID:    memberID,
-			})
+	for displayName, memberID := range r {
+		// Apply filter if specified
+		if filterSet != nil && !filterSet[memberID] {
+			continue
 		}
-	} else {
-		// Create a set of target member IDs for efficient lookup
-		targetMemberSet := make(map[MemberID]bool)
-		for _, memberID := range memberIDs {
-			targetMemberSet[memberID] = true
+		// Apply exclusion if specified
+		if excludeSet != nil && excludeSet[memberID] {
+			continue
 		}
-		// Filter reviewers by the specified member IDs
-		for displayName, memberID := range r {
-			if targetMemberSet[memberID] {
-				candidates = append(candidates, Member{
-					DisplayName: displayName,
-					MemberID:    memberID,
-				})
-			}
-		}
+		candidates = append(candidates, Member{
+			DisplayName: displayName,
+			MemberID:    memberID,
+		})
 	}
 	if len(candidates) == 0 {
 		return Member{}, false
@@ -144,15 +151,17 @@ type InteractiveMessageEvent struct {
 	Value     string
 	MessageTS string
 	ThreadTS  string
+	MemberID  MemberID
 }
 
-func NewInteractiveMessageEvent(channelID, actionID, value, messageTS, threadTS string) *InteractiveMessageEvent {
+func NewInteractiveMessageEvent(channelID, actionID, value, messageTS, threadTS string, memberID MemberID) *InteractiveMessageEvent {
 	return &InteractiveMessageEvent{
 		ChannelID: channelID,
 		ActionID:  actionID,
 		Value:     value,
 		MessageTS: messageTS,
 		ThreadTS:  threadTS,
+		MemberID:  memberID,
 	}
 }
 
