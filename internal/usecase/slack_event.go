@@ -79,26 +79,10 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 		reviewerID := u.reviewerMap[reviewerName]
 		messageText = "<@" + string(reviewerID) + ">\n【ランダム】\nこのメッセージをレビューし、完了したら :white_check_mark: のリアクションをつけてください。\nメッセージ内のリンクは *シークレットウィンドウ* で開いて確認するようにしてください。"
 	case "urgent_reviewer":
-		// Get all reviewer member IDs from the map
-		var allReviewerIDs []model.MemberID
-		for _, memberID := range u.reviewerMap {
-			allReviewerIDs = append(allReviewerIDs, memberID)
-		}
-		// Filter to get online member IDs from all reviewers
-		onlineMemberIDs, err := u.slackRepo.FilterOnlineMemberIDs(allReviewerIDs)
-		if err != nil {
-			slog.Error("failed to filter online member IDs", "error", err)
-			return model.NewStatusResponse(http.StatusInternalServerError)
-		}
-		// Get random online reviewer from configured map
-		reviewer, ok := u.reviewerMap.GetRandomReviewerFrom(onlineMemberIDs)
-		if !ok {
-			slog.Error("no reviewers configured")
-			return model.NewStatusResponse(http.StatusInternalServerError)
-		}
-		reviewerName = reviewer.DisplayName
-		reviewerID := u.reviewerMap[reviewerName]
-		messageText = "<@" + string(reviewerID) + ">\n【急ぎ】\nこのメッセージをレビューし、完了したら :white_check_mark: のリアクションをつけてください。\nメッセージ内のリンクは *シークレットウィンドウ* で開いて確認するようにしてください。"
+		// Process urgent reviewer selection asynchronously to avoid timeout
+		go u.processUrgentReviewer(event)
+		// Return immediately to avoid Slack timeout
+		return model.NewStatusResponse(http.StatusOK)
 	case "select_reviewer":
 		reviewerName = event.Value
 		reviewerID := u.reviewerMap[reviewerName]
@@ -168,6 +152,72 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 		return model.NewStatusResponse(http.StatusInternalServerError)
 	}
 	return model.NewStatusResponse(http.StatusOK)
+}
+
+// processUrgentReviewer handles urgent reviewer selection asynchronously
+func (u *SlackUsecaseImpl) processUrgentReviewer(event *model.InteractiveMessageEvent) {
+	// Get all reviewer member IDs from the map
+	var allReviewerIDs []model.MemberID
+	for _, memberID := range u.reviewerMap {
+		allReviewerIDs = append(allReviewerIDs, memberID)
+	}
+	// Filter to get online member IDs from all reviewers
+	onlineMemberIDs, err := u.slackRepo.FilterOnlineMemberIDs(allReviewerIDs)
+	if err != nil {
+		slog.Error("failed to filter online member IDs", "error", err)
+		return
+	}
+	// Get random online reviewer from configured map
+	reviewer, ok := u.reviewerMap.GetRandomReviewerFrom(onlineMemberIDs)
+	if !ok {
+		slog.Error("no reviewers configured")
+		return
+	}
+	reviewerName := reviewer.DisplayName
+	reviewerID := u.reviewerMap[reviewerName]
+	messageText := "<@" + string(reviewerID) + ">\n【急ぎ】\nこのメッセージをレビューし、完了したら :white_check_mark: のリアクションをつけてください。\nメッセージ内のリンクは *シークレットウィンドウ* で開いて確認するようにしてください。"
+
+	fields := []model.AttachmentField{
+		{
+			Title: "レビュワー",
+			Value: reviewerName,
+			Short: false,
+		},
+	}
+	// Create Reassign button action
+	actions := []model.Action{
+		{
+			Name:  "reassign_reviewer",
+			Text:  "Reassign",
+			Type:  "button",
+			Value: reviewerName,
+		},
+	}
+	// Delete the original message
+	if err := u.slackRepo.DeleteMessage(event.ChannelID, event.MessageTS); err != nil {
+		slog.Error("failed to delete message", "error", err)
+		return
+	}
+	// Create and post new message in the thread
+	message := model.NewMessage(
+		event.ChannelID,
+		messageText,
+		[]model.Attachment{
+			{
+				Color:      "#F4631E",
+				Fields:     fields,
+				Actions:    actions,
+				CallbackID: "reviewer_action",
+			},
+		},
+		false,
+		event.ThreadTS,
+	)
+	// Post the new message
+	if err := u.slackRepo.PostMessage(message); err != nil {
+		slog.Error("failed to post message", "error", err)
+		return
+	}
 }
 
 // HandleURLVerification handles URL verification events
