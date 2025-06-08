@@ -9,6 +9,24 @@ import (
 
 // HandleAppMention handles app mention events
 func (u *SlackUsecaseImpl) HandleAppMention(event *model.AppMentionEvent) *model.HTTPResponse {
+	return u.sendReviewerSelectionMessage(event.ChannelID, event.ThreadTS)
+}
+
+// HandleInteractiveMessage handles interactive message events
+func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMessageEvent) *model.HTTPResponse {
+	// Delete the original message synchronously to provide immediate feedback
+	if err := u.slackRepo.DeleteMessage(event.ChannelID, event.MessageTS); err != nil {
+		slog.Error("failed to delete message", "error", err)
+		return model.NewStatusResponse(http.StatusInternalServerError)
+	}
+	// Process the action asynchronously
+	go u.processInteractiveAction(event)
+	// Return immediately to avoid Slack timeout
+	return model.NewStatusResponse(http.StatusOK)
+}
+
+// sendReviewerSelectionMessage sends the reviewer selection message (same as HandleAppMention)
+func (u *SlackUsecaseImpl) sendReviewerSelectionMessage(channelID, threadTS string) *model.HTTPResponse {
 	// Create options for the select menu
 	options := make([]struct {
 		Text  string `json:"text"`
@@ -24,7 +42,7 @@ func (u *SlackUsecaseImpl) HandleAppMention(event *model.AppMentionEvent) *model
 		})
 	}
 	message := model.NewMessage(
-		event.ChannelID,
+		channelID,
 		"レビュワーを選択してください",
 		[]model.Attachment{
 			{
@@ -53,18 +71,18 @@ func (u *SlackUsecaseImpl) HandleAppMention(event *model.AppMentionEvent) *model
 			},
 		},
 		false,
-		event.ThreadTS,
+		threadTS,
 	)
 	// Post the message to Slack
 	if err := u.slackRepo.PostMessage(message); err != nil {
-		slog.Error("failed to post message", "error", err)
+		slog.Error("failed to post fallback message", "error", err)
 		return model.NewStatusResponse(http.StatusInternalServerError)
 	}
 	return model.NewStatusResponse(http.StatusOK)
 }
 
-// HandleInteractiveMessage handles interactive message events
-func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMessageEvent) *model.HTTPResponse {
+// processInteractiveAction handles interactive action processing asynchronously
+func (u *SlackUsecaseImpl) processInteractiveAction(event *model.InteractiveMessageEvent) {
 	var reviewerName string
 	var messageText string
 	switch event.ActionID {
@@ -73,7 +91,8 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 		reviewer, ok := u.reviewerMap.GetRandomReviewerFrom(nil)
 		if !ok {
 			slog.Error("no reviewers configured")
-			return model.NewStatusResponse(http.StatusInternalServerError)
+			u.sendReviewerSelectionMessage(event.ChannelID, event.ThreadTS)
+			return
 		}
 		reviewerName = reviewer.DisplayName
 		reviewerID := u.reviewerMap[reviewerName]
@@ -88,13 +107,15 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 		onlineMemberIDs, err := u.slackRepo.FilterOnlineMemberIDs(allReviewerIDs)
 		if err != nil {
 			slog.Error("failed to filter online member IDs", "error", err)
-			return model.NewStatusResponse(http.StatusInternalServerError)
+			u.sendReviewerSelectionMessage(event.ChannelID, event.ThreadTS)
+			return
 		}
 		// Get random online reviewer from configured map
 		reviewer, ok := u.reviewerMap.GetRandomReviewerFrom(onlineMemberIDs)
 		if !ok {
 			slog.Error("no reviewers configured")
-			return model.NewStatusResponse(http.StatusInternalServerError)
+			u.sendReviewerSelectionMessage(event.ChannelID, event.ThreadTS)
+			return
 		}
 		reviewerName = reviewer.DisplayName
 		reviewerID := u.reviewerMap[reviewerName]
@@ -117,15 +138,18 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 		reviewer, ok := candidateReviewers.GetRandomReviewerFrom(nil)
 		if !ok {
 			slog.Error("no other reviewers available")
-			return model.NewStatusResponse(http.StatusInternalServerError)
+			u.sendReviewerSelectionMessage(event.ChannelID, event.ThreadTS)
+			return
 		}
 		reviewerName = reviewer.DisplayName
 		reviewerID := u.reviewerMap[reviewerName]
 		messageText = "<@" + string(reviewerID) + ">\n【ランダム】\nこのメッセージをレビューし、完了したら :white_check_mark: のリアクションをつけてください。\nメッセージ内のリンクは *シークレットウィンドウ* で開いて確認するようにしてください。"
 	default:
 		slog.Error("unknown action ID", "action_id", event.ActionID)
-		return model.NewStatusResponse(http.StatusBadRequest)
+		u.sendReviewerSelectionMessage(event.ChannelID, event.ThreadTS)
+		return
 	}
+
 	fields := []model.AttachmentField{
 		{
 			Title: "レビュワー",
@@ -141,11 +165,6 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 			Type:  "button",
 			Value: reviewerName,
 		},
-	}
-	// Delete the original message
-	if err := u.slackRepo.DeleteMessage(event.ChannelID, event.MessageTS); err != nil {
-		slog.Error("failed to delete message", "error", err)
-		return model.NewStatusResponse(http.StatusInternalServerError)
 	}
 	// Create and post new message in the thread
 	message := model.NewMessage(
@@ -165,9 +184,9 @@ func (u *SlackUsecaseImpl) HandleInteractiveMessage(event *model.InteractiveMess
 	// Post the new message
 	if err := u.slackRepo.PostMessage(message); err != nil {
 		slog.Error("failed to post message", "error", err)
-		return model.NewStatusResponse(http.StatusInternalServerError)
+		u.sendReviewerSelectionMessage(event.ChannelID, event.ThreadTS)
+		return
 	}
-	return model.NewStatusResponse(http.StatusOK)
 }
 
 // HandleURLVerification handles URL verification events
