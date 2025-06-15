@@ -10,9 +10,9 @@ fi
 export AWS_PROFILE=$1
 export CLOUDSDK_ACTIVE_CONFIG_NAME=$2
 
-ROOT_DIR=$(cd $(dirname $0)/..; pwd)
+ROOT_DIR=$(cd "$(dirname "$0")"/..; pwd)
 
-cd $ROOT_DIR/terraform
+cd "$ROOT_DIR"/terraform
 
 terraform init
 # image の tag を latest に固定しているため、一度 destroy しないと更新されない
