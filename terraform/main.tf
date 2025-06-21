@@ -31,11 +31,14 @@ resource "google_artifact_registry_repository" "slack_review_request_bot_repo" {
   repository_id          = local.app_name
   format                 = "DOCKER"
   cleanup_policy_dry_run = false
+  docker_config {
+    immutable_tags = true
+  }
   cleanup_policies {
     id     = "keep-minimum-versions"
     action = "KEEP"
     most_recent_versions {
-      keep_count = 3
+      keep_count = 2
     }
   }
   cleanup_policies {
@@ -43,42 +46,17 @@ resource "google_artifact_registry_repository" "slack_review_request_bot_repo" {
     action = "DELETE"
     condition {
       tag_state  = "ANY"
-      older_than = "30d"
+      older_than = "24h"
     }
   }
 }
 
-resource "google_project_service" "artifact_registry_api" {
+resource "google_project_service" "artifact_registry" {
   project = var.google_project_id
   service = "artifactregistry.googleapis.com"
 }
 
-resource "terraform_data" "docker_push" {
-  triggers_replace = [timestamp()]
-  provisioner "local-exec" {
-    command = <<EOF
-      echo "Logging in to Artifact Registry..."
-      gcloud auth print-access-token --impersonate-service-account ${var.google_service_account_email} | docker login -u oauth2accesstoken --password-stdin ${var.google_region}-docker.pkg.dev
-
-      echo "Tagging ${local.app_name} image..."
-      docker tag ${local.app_name}:latest ${var.google_region}-docker.pkg.dev/${var.google_project_id}/${local.app_name}/${local.app_name}:latest
-
-      echo "Pushing ${local.app_name} image to Artifact Registry..."
-      docker push ${var.google_region}-docker.pkg.dev/${var.google_project_id}/${local.app_name}/${local.app_name}:latest
-    EOF
-  }
-  depends_on = [
-    google_artifact_registry_repository.slack_review_request_bot_repo,
-    google_project_service.artifact_registry_api,
-  ]
-}
-
-resource "time_sleep" "wait_for_push" {
-  depends_on      = [terraform_data.docker_push]
-  create_duration = "30s"
-}
-
-resource "google_project_service" "cloud_run_admin_api" {
+resource "google_project_service" "cloud_run_admin" {
   project = var.google_project_id
   service = "run.googleapis.com"
 }
@@ -96,10 +74,12 @@ resource "google_cloud_run_v2_service" "slack_review_request_bot" {
       max_instance_count = 1
     }
   }
-  depends_on = [
-    google_project_service.cloud_run_admin_api,
-    time_sleep.wait_for_push,
-  ]
+  depends_on = [google_project_service.cloud_run_admin]
+  lifecycle {
+    ignore_changes = [
+      template[0].containers[0].image
+    ]
+  }
 }
 
 data "google_iam_policy" "cloud_run_invoker" {
