@@ -9,6 +9,10 @@ terraform {
       source  = "hashicorp/google"
       version = "6.31.1"
     }
+    google-beta = {
+      source  = "hashicorp/google-beta"
+      version = "6.40.0"
+    }
   }
   backend "s3" {
     profile      = "himura"
@@ -26,7 +30,16 @@ provider "google" {
   region  = var.google_region
 }
 
-resource "google_artifact_registry_repository" "slack_review_request_bot_repo" {
+provider "google-beta" {
+  project = var.google_project_id
+  region  = var.google_region
+}
+
+data "google_project" "this" {
+  project_id = var.google_project_id
+}
+
+resource "google_artifact_registry_repository" "this" {
   location               = var.google_region
   repository_id          = local.app_name
   format                 = "DOCKER"
