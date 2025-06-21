@@ -15,3 +15,13 @@ variable "google_service_account_email" {
   type        = string
   default     = "mitarashidango0927@gmail.com"
 }
+
+variable "github_org" {
+  description = "GitHub organization name"
+  type        = string
+}
+
+variable "github_repo" {
+  description = "GitHub repository name"
+  type        = string
+}

@@ -1,0 +1,85 @@
+name: cd
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
+
+jobs:
+  check-release-label:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+    outputs:
+      has-release-label: ${{ steps.check-label.outputs.has-release-label }}
+    steps:
+      - name: Check for release label
+        id: check-label
+        run: |
+          LABELS="${{ join(github.event.pull_request.labels.*.name, ' ') }}"
+          if [[ "$LABELS" == *'release'* ]]; then
+            echo 'has-release-label=true' >> $GITHUB_OUTPUT
+          else
+            echo 'has-release-label=false' >> $GITHUB_OUTPUT
+          fi
+  deploy:
+    runs-on: ubuntu-latest
+    needs: check-release-label
+    if: needs.check-release-label.outputs.has-release-label == 'true'
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      GOOGLE_PROJECT_ID: ${{ secrets.GOOGLE_PROJECT_ID }}
+      GOOGLE_REGION: ${{ secrets.GOOGLE_REGION }}
+      GOOGLE_WORKLOAD_IDENTITY_POOL_PROVIDER: ${{ secrets.GOOGLE_WORKLOAD_IDENTITY_POOL_PROVIDER }}
+      GAR_REPOSITORY: ${{ secrets.GAR_REPOSITORY }}
+      CLOUD_RUN_SERVICE_NAME: ${{ secrets.CLOUD_RUN_SERVICE_NAME }}
+      SLACK_OAUTH_TOKEN: ${{ secrets.SLACK_OAUTH_TOKEN }}
+      SLACK_SIGNING_SECRET: ${{ secrets.SLACK_SIGNING_SECRET }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: ${{ env.GOOGLE_PROJECT_ID }}
+          workload_identity_provider: ${{ env.GOOGLE_WORKLOAD_IDENTITY_POOL_PROVIDER }}
+      - name: Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+      - name: Configure Docker for GAR
+        run: |
+          echo 'Configuring Docker to use Google Artifact Registry...'
+          gcloud auth configure-docker "${GOOGLE_REGION}-docker.pkg.dev" --quiet
+      - name: Build, tag, and push docker image to GAR
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          echo 'Building docker image...'
+          echo "Image tag: $IMAGE_TAG"
+          docker build -f Dockerfile \
+            --no-cache \
+            --platform=linux/amd64 \
+            --build-arg SLACK_OAUTH_TOKEN="$SLACK_OAUTH_TOKEN" \
+            --build-arg SLACK_SIGNING_SECRET="$SLACK_SIGNING_SECRET" \
+            -t slack-review-request-bot:"$IMAGE_TAG" "$GITHUB_WORKSPACE" --progress=plain
+
+          echo 'Tagging docker image...'
+          docker tag slack-review-request-bot:"$IMAGE_TAG" "${GOOGLE_REGION}-docker.pkg.dev/$GOOGLE_PROJECT_ID/$GAR_REPOSITORY/$GAR_REPOSITORY:$IMAGE_TAG"
+
+          echo 'Pushing docker image to GAR...'
+          docker push "${GOOGLE_REGION}-docker.pkg.dev/$GOOGLE_PROJECT_ID/$GAR_REPOSITORY/$GAR_REPOSITORY:$IMAGE_TAG"
+
+          echo 'Successfully pushed docker image to GAR'
+      - name: Update Cloud Run service image
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          echo "Updating Cloud Run service $CLOUD_RUN_SERVICE_NAME with new image..."
+          gcloud run services update "$CLOUD_RUN_SERVICE_NAME" \
+            --image="${GOOGLE_REGION}-docker.pkg.dev/$GOOGLE_PROJECT_ID/$GAR_REPOSITORY/$GAR_REPOSITORY:$IMAGE_TAG" \
+            --region="$GOOGLE_REGION" \
+            --quiet
+
+          echo "Successfully updated Cloud Run service $CLOUD_RUN_SERVICE_NAME"
