@@ -31,6 +31,7 @@ jobs:
       id-token: write
       contents: read
     env:
+      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
       GOOGLE_PROJECT_ID: ${{ secrets.GOOGLE_PROJECT_ID }}
       GOOGLE_REGION: ${{ secrets.GOOGLE_REGION }}
       GOOGLE_WORKLOAD_IDENTITY_POOL_PROVIDER: ${{ secrets.GOOGLE_WORKLOAD_IDENTITY_POOL_PROVIDER }}
@@ -41,6 +42,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Install 1Password CLI
+        uses: 1password/install-cli-action@v1
+      - name: Generate reviewer_map.json
+        run: |
+          echo 'Generating reviewer_map.json...'
+          ./scripts/setup.sh
       - id: auth
         uses: google-github-actions/auth@v2
         with:
