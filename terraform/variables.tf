@@ -19,9 +19,11 @@ variable "google_service_account_email" {
 variable "github_org" {
   description = "GitHub organization name"
   type        = string
+  default     = "himura467"
 }
 
 variable "github_repo" {
   description = "GitHub repository name"
   type        = string
+  default     = "slack-review-request-bot"
 }
