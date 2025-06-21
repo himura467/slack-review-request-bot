@@ -22,8 +22,7 @@ resource "google_iam_workload_identity_pool_provider" "gha" {
   }
   attribute_condition = <<EOT
     assertion.repository == "${var.github_org}/${var.github_repo}" &&
-    assertion.event_name == "pull_request" &&
-    assertion.base_ref == "refs/heads/main"
+    assertion.ref == "refs/heads/main"
   EOT
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
